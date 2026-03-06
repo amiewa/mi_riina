@@ -1,13 +1,14 @@
 """Misskey REST API クライアント
 
-mipac ラッパーとして実装し、各 Manager は公開メソッドのみを使用する。
-mipac が Misskey 2025.12.2 で正常動作しない場合は aiohttp 直接実装に切り替える。
+mipac が Misskey 2025.12.2 で正常動作しないため、
+aiohttp で Misskey REST API を直接実装する。
+各 Manager は公開メソッドのみを使用する。
 """
 
 import logging
 from typing import Any
 
-from mipac.client import Client as MipacClient
+import aiohttp
 
 from bot.core.models import NoteEvent
 
@@ -37,30 +38,28 @@ def filter_notes(notes: list[NoteEvent], bot_user_id: str) -> list[NoteEvent]:
 
 
 class MisskeyClient:
-    """Misskey REST API クライアント
+    """Misskey REST API クライアント（aiohttp 直接実装）
 
     各 Manager はこのクラスの公開メソッドのみを使用する。
-    内部実装が mipac であれ aiohttp 直接実装であれ、
-    このインターフェースは変わらない。
     """
 
     def __init__(self, instance_url: str, api_token: str) -> None:
         self._instance_url = instance_url.rstrip("/")
         self._token = api_token
-        self._client: MipacClient | None = None
+        self._session: aiohttp.ClientSession | None = None
         self._bot_user_id: str = ""
 
     async def initialize(self) -> None:
         """クライアントを初期化し、bot 自身の user_id を取得する。"""
-        self._client = MipacClient(self._instance_url, self._token)
-        await self._client.http.login()
+        self._session = aiohttp.ClientSession()
 
-        # bot 自身のユーザー情報を取得
+        # bot 自身のユーザー情報を取得して接続確認
         me = await self.get_me()
         self._bot_user_id = me["id"]
         logger.info(
-            "Misskey クライアントを初期化しました（user_id: %s）",
+            "Misskey クライアントを初期化しました（user_id: %s, username: %s）",
             self._bot_user_id,
+            me.get("username", ""),
         )
 
     @property
@@ -78,6 +77,46 @@ class MisskeyClient:
         """インスタンス URL。"""
         return self._instance_url
 
+    async def _request(self, endpoint: str, params: dict | None = None) -> Any:
+        """Misskey API にリクエストを送信する。
+
+        Args:
+            endpoint: /api/ から始まる API エンドポイントパス
+            params: リクエストボディ（認証トークンは自動付与）
+
+        Returns:
+            API レスポンス（dict / list / None）
+
+        Raises:
+            RuntimeError: API エラー時
+        """
+        assert self._session is not None, "クライアントが初期化されていません"
+
+        body = {"i": self._token}
+        if params:
+            body.update(params)
+
+        url = f"{self._instance_url}{endpoint}"
+        logger.debug("API リクエスト: %s", endpoint)
+
+        async with self._session.post(url, json=body) as resp:
+            if resp.status == 204:
+                # コンテンツなし（削除系など）
+                return None
+
+            response_body = await resp.json(content_type=None)
+
+            if resp.status != 200:
+                error_info = response_body if isinstance(response_body, dict) else {}
+                error_code = error_info.get("error", {}).get("code", "UNKNOWN")
+                error_msg = error_info.get("error", {}).get("message", str(response_body))
+                raise RuntimeError(
+                    f"Misskey API エラー [{resp.status}] {error_code}: {error_msg}"
+                )
+
+            logger.debug("API レスポンス: %s -> status=%s", endpoint, resp.status)
+            return response_body
+
     async def create_note(
         self,
         text: str,
@@ -87,8 +126,6 @@ class MisskeyClient:
         poll: dict | None = None,
     ) -> str:
         """ノートを投稿し、note_id を返す。"""
-        assert self._client is not None
-
         params: dict[str, Any] = {
             "text": text,
             "visibility": visibility,
@@ -100,58 +137,37 @@ class MisskeyClient:
         if poll:
             params["poll"] = poll
 
-        result = await self._client.http.request(
-            route="/api/notes/create",
-            json=params,
-            auth=True,
-            lower=True,
-        )
-        note_id = result["created_note"]["id"]
+        result = await self._request("/api/notes/create", params)
+        note_id = result["createdNote"]["id"]
         logger.info("ノートを投稿しました（note_id=%s）", note_id)
         return note_id
 
     async def delete_note(self, note_id: str) -> None:
         """ノートを削除する。404 は成功扱い。"""
-        assert self._client is not None
-
         try:
-            await self._client.http.request(
-                route="/api/notes/delete",
-                json={"noteId": note_id},
-                auth=True,
-                lower=True,
-            )
+            await self._request("/api/notes/delete", {"noteId": note_id})
             logger.info("ノートを削除しました（note_id=%s）", note_id)
-        except Exception as e:
-            if "404" in str(e) or "NO_SUCH_NOTE" in str(e):
-                logger.info(
-                    "ノートは既に削除されています（note_id=%s）", note_id
-                )
+        except RuntimeError as e:
+            if "NO_SUCH_NOTE" in str(e) or "404" in str(e):
+                logger.info("ノートは既に削除されています（note_id=%s）", note_id)
             else:
                 raise
 
     async def create_reaction(self, note_id: str, reaction: str) -> None:
         """リアクションを送信する。"""
-        assert self._client is not None
-
-        await self._client.http.request(
-            route="/api/notes/reactions/create",
-            json={"noteId": note_id, "reaction": reaction},
-            auth=True,
-            lower=True,
+        await self._request(
+            "/api/notes/reactions/create",
+            {"noteId": note_id, "reaction": reaction},
         )
         logger.debug(
             "リアクションを送信しました（note_id=%s, reaction=%s）",
-            note_id, reaction,
+            note_id,
+            reaction,
         )
 
     async def upload_file(self, file_path: str) -> str:
         """ファイルをドライブにアップロードし、file_id を返す。"""
-        assert self._client is not None
-
-        # mipac のアップロード API を試行
-        # 未対応の場合は aiohttp で直接実装に切り替え
-        import aiohttp
+        assert self._session is not None
 
         url = f"{self._instance_url}/api/drive/files/create"
         with open(file_path, "rb") as f:
@@ -163,58 +179,39 @@ class MisskeyClient:
                 filename=file_path.split("/")[-1],
             )
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, data=data) as resp:
-                    if resp.status != 200:
-                        error_text = await resp.text()
-                        raise RuntimeError(
-                            f"ファイルアップロードに失敗しました: {resp.status} {error_text[:200]}"
-                        )
-                    result = await resp.json()
-                    file_id = result["id"]
-                    logger.info(
-                        "ファイルをアップロードしました（file_id=%s）", file_id
+            async with self._session.post(url, data=data) as resp:
+                if resp.status != 200:
+                    error_text = await resp.text()
+                    raise RuntimeError(
+                        f"ファイルアップロードに失敗しました: {resp.status} {error_text[:200]}"
                     )
-                    return file_id
+                result = await resp.json()
+                file_id = result["id"]
+                logger.info(
+                    "ファイルをアップロードしました（file_id=%s）", file_id
+                )
+                return file_id
 
     async def delete_file(self, file_id: str) -> None:
         """ドライブファイルを削除する。404 は成功扱い。"""
-        assert self._client is not None
-
         try:
-            await self._client.http.request(
-                route="/api/drive/files/delete",
-                json={"fileId": file_id},
-                auth=True,
-                lower=True,
-            )
+            await self._request("/api/drive/files/delete", {"fileId": file_id})
             logger.info("ドライブファイルを削除しました（file_id=%s）", file_id)
-        except Exception as e:
-            if "404" in str(e) or "NO_SUCH_FILE" in str(e):
-                logger.info(
-                    "ファイルは既に削除されています（file_id=%s）", file_id
-                )
+        except RuntimeError as e:
+            if "NO_SUCH_FILE" in str(e) or "404" in str(e):
+                logger.info("ファイルは既に削除されています（file_id=%s）", file_id)
             else:
                 raise
 
     async def get_me(self) -> dict:
         """bot 自身のユーザー情報を取得する。"""
-        assert self._client is not None
-
-        result = await self._client.http.request(
-            route="/api/i",
-            json={},
-            auth=True,
-            lower=True,
-        )
+        result = await self._request("/api/i")
         return result
 
     async def get_timeline(
         self, source: str, limit: int = 20
     ) -> list[dict]:
         """指定ソースの TL からノートを取得する。ページネーション対応。"""
-        assert self._client is not None
-
         # ソースと API エンドポイントの対応
         endpoints = {
             "home": "/api/notes/timeline",
@@ -235,12 +232,7 @@ class MisskeyClient:
             if until_id:
                 params["untilId"] = until_id
 
-            notes = await self._client.http.request(
-                route=endpoint,
-                json=params,
-                auth=True,
-                lower=True,
-            )
+            notes = await self._request(endpoint, params)
 
             if not notes:
                 break
@@ -253,32 +245,16 @@ class MisskeyClient:
 
     async def follow_user(self, user_id: str) -> None:
         """ユーザーをフォローする。"""
-        assert self._client is not None
-
-        await self._client.http.request(
-            route="/api/following/create",
-            json={"userId": user_id},
-            auth=True,
-            lower=True,
-        )
+        await self._request("/api/following/create", {"userId": user_id})
         logger.info("ユーザーをフォローしました（user_id=%s）", user_id)
 
     async def unfollow_user(self, user_id: str) -> None:
         """ユーザーのフォローを解除する。"""
-        assert self._client is not None
-
-        await self._client.http.request(
-            route="/api/following/delete",
-            json={"userId": user_id},
-            auth=True,
-            lower=True,
-        )
+        await self._request("/api/following/delete", {"userId": user_id})
         logger.info("ユーザーのフォローを解除しました（user_id=%s）", user_id)
 
     async def get_followers(self, limit: int = 100) -> list[dict]:
         """フォロワー一覧を取得する。ページネーション対応。"""
-        assert self._client is not None
-
         all_followers: list[dict] = []
         until_id: str | None = None
         remaining = limit
@@ -291,12 +267,7 @@ class MisskeyClient:
             if until_id:
                 params["untilId"] = until_id
 
-            followers = await self._client.http.request(
-                route="/api/users/followers",
-                json=params,
-                auth=True,
-                lower=True,
-            )
+            followers = await self._request("/api/users/followers", params)
 
             if not followers:
                 break
@@ -309,8 +280,6 @@ class MisskeyClient:
 
     async def get_following(self, limit: int = 100) -> list[dict]:
         """フォロー一覧を取得する。ページネーション対応。"""
-        assert self._client is not None
-
         all_following: list[dict] = []
         until_id: str | None = None
         remaining = limit
@@ -323,12 +292,7 @@ class MisskeyClient:
             if until_id:
                 params["untilId"] = until_id
 
-            following = await self._client.http.request(
-                route="/api/users/following",
-                json=params,
-                auth=True,
-                lower=True,
-            )
+            following = await self._request("/api/users/following", params)
 
             if not following:
                 break
@@ -341,6 +305,6 @@ class MisskeyClient:
 
     async def close(self) -> None:
         """クライアントを終了する。"""
-        if self._client:
-            await self._client.http.close_session()
+        if self._session and not self._session.closed:
+            await self._session.close()
             logger.info("Misskey クライアントを終了しました")

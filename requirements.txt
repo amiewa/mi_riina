@@ -1,7 +1,7 @@
 # Misskey Bot Riina v2 Requirements
 
-# Misskey API（破壊的変更リスクがあるためマイナーバージョン固定）
-mipac>=0.7,<0.8
+# Misskey API: mipac は Misskey 2025.12.2 で動作しないため aiohttp 直接実装に移行
+# mipac は不要のため削除済み
 
 # 生成 AI
 google-genai>=1.0,<2.0
