@@ -82,3 +82,107 @@ class TestNGWordManager:
         assert mgr.contains_ng_word("テストです") is True
         assert mgr.contains_ng_word("これはNGです") is True  # NGはlower()で「ng」になりマッチする
         assert mgr.contains_ng_word("これはngです") is True
+
+
+class TestNGWordManagerCacheFallback:
+    """NGWordManager のキャッシュフォールバックテスト"""
+
+    @pytest.mark.asyncio
+    async def test_cache_fallback_when_external_fails(self, tmp_path) -> None:
+        """外部取得失敗時にキャッシュファイルを使用する"""
+        from unittest.mock import MagicMock
+
+        # キャッシュファイルを作成
+        cache_file = tmp_path / "ng_cache.txt"
+        cache_file.write_text("キャッシュNG\nキャッシュワード\n", encoding="utf-8")
+
+        # セッションがエラーを発生させるようにモック
+        mock_session = MagicMock()
+        mock_session.get.side_effect = Exception("接続エラー")
+
+        mgr = NGWordManager(
+            local_words=["ローカルNG"],
+            external_urls=["https://example.com/ng.txt"],
+            cache_file=str(cache_file),
+            session=mock_session,
+        )
+        await mgr.initialize()
+
+        # キャッシュのワードが含まれていること（lower()済みなので小文字に変換される）
+        assert mgr.contains_ng_word("キャッシュNGです") is True
+        # ローカルリストも含まれていること
+        assert mgr.contains_ng_word("ローカルNGです") is True
+
+    @pytest.mark.asyncio
+    async def test_local_only_when_no_cache(self, tmp_path) -> None:
+        """外部取得失敗かつキャッシュなし → ローカルリストのみで運用"""
+        from unittest.mock import MagicMock
+
+        cache_file = tmp_path / "nonexistent_cache.txt"
+        # キャッシュファイルは作らない
+
+        mock_session = MagicMock()
+        mock_session.get.side_effect = Exception("接続エラー")
+
+        mgr = NGWordManager(
+            local_words=["ローカルのみ"],
+            external_urls=["https://example.com/ng.txt"],
+            cache_file=str(cache_file),
+            session=mock_session,
+        )
+        await mgr.initialize()
+
+        # ローカルリストは有効
+        assert mgr.contains_ng_word("ローカルのみのワード") is True
+        # キャッシュがないので外部ワードは含まれない
+        assert mgr.contains_ng_word("外部だけのワード") is False
+
+    @pytest.mark.asyncio
+    async def test_cache_saved_on_success(self, tmp_path) -> None:
+        """外部取得成功時にキャッシュが保存される"""
+        from unittest.mock import AsyncMock, MagicMock
+
+        cache_file = tmp_path / "ng_cache.txt"
+
+        # 成功するモックレスポンス
+        mock_response = AsyncMock()
+        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_response.__aexit__ = AsyncMock(return_value=False)
+        mock_response.status = 200
+        mock_response.text = AsyncMock(return_value="外部NG\n外部ワード\n")
+
+        mock_session = MagicMock()
+        mock_session.get.return_value = mock_response
+
+        mgr = NGWordManager(
+            local_words=["ローカル"],
+            external_urls=["https://example.com/ng.txt"],
+            cache_file=str(cache_file),
+            session=mock_session,
+        )
+        await mgr.initialize()
+
+        # キャッシュファイルが作成されていること
+        assert cache_file.exists()
+        cache_content = cache_file.read_text(encoding="utf-8")
+        # lower()済みで保存されている
+        assert "外部ng" in cache_content
+
+    @pytest.mark.asyncio
+    async def test_no_session_falls_back_to_cache(self, tmp_path) -> None:
+        """セッションなしの場合はキャッシュを使用する"""
+        cache_file = tmp_path / "ng_cache.txt"
+        cache_file.write_text("キャッシュのみ\n", encoding="utf-8")
+
+        mgr = NGWordManager(
+            local_words=["ローカル"],
+            external_urls=["https://example.com/ng.txt"],
+            cache_file=str(cache_file),
+            session=None,  # セッションなし
+        )
+        await mgr.initialize()
+
+        # キャッシュのワードが含まれていること
+        assert mgr.contains_ng_word("キャッシュのみワード") is True
+        # ローカルリストも有効
+        assert mgr.contains_ng_word("ローカルお話") is True
