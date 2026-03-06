@@ -1,0 +1,23 @@
+# OS files
+.DS_Store
+Thumbs.db
+*.identifier
+*:Zone.Identifier
+
+
+# Dependencies
+node_modules/
+tasks/
+package-lock.json
+
+# Local Environment
+.env
+
+# Documentation (Optional: Keep if you want docs in Git)
+# implementation_plan.md
+# task.md
+# walkthrough.md
+
+# AI
+GEMINI.md
+CLAUDE.md

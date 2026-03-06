@@ -1,0 +1,26 @@
+# Misskey Bot Riina v2 Requirements
+
+# Misskey Client
+mipac
+websockets
+
+# AI Clients
+google-genai
+aiohttp
+
+# Natural Language Processing
+sudachipy
+sudachidict-core
+
+# Core Utilities
+pydantic
+apscheduler
+aiosqlite
+pyyaml
+
+# Testing
+pytest
+pytest-asyncio
+
+# Linting/Formatting
+ruff
