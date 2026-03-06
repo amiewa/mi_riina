@@ -4,20 +4,35 @@ Thumbs.db
 *.identifier
 *:Zone.Identifier
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
 
 # Dependencies
 node_modules/
-tasks/
 package-lock.json
 
 # Local Environment
 .env
 
-# Documentation (Optional: Keep if you want docs in Git)
-# implementation_plan.md
-# task.md
-# walkthrough.md
+# Data (DB・バックアップ・フォント等)
+data/
+logs/
 
-# AI
+# Tasks (ドキュメント)
+tasks/
+
+# AI設定
 GEMINI.md
 CLAUDE.md
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

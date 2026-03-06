@@ -1,0 +1,23 @@
+# MON / TUE / WED / THU / FRI / SAT / SUN
+# "HH:MM" 形式のキー / 複数登録でランダム選択
+# probability: 省略時は posting.weekday_posts.probability の値を使用
+
+SUN:
+  "20:00":
+    probability: 0.9
+    posts:
+      - "もうすぐ日曜日が終わるんだけど… ちょっと待って…"
+      - "月曜日が迫ってるって… ウソでしょ…"
+
+MON:
+  "08:00":
+    posts:
+      - "ねえ、もう帰っていいかな… だめ？"
+      - "月曜日… なんとか起きたじゃん"
+
+FRI:
+  "17:00":
+    probability: 1.0
+    posts:
+      - "ふふっ、金曜日のこの時間 好きじゃん"
+      - "やっと週末！"

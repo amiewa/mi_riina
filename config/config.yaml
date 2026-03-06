@@ -1,0 +1,202 @@
+bot:
+  character_prompt_file: "config/character_prompt.md"
+  timezone: "Asia/Tokyo"
+
+  # 形態素解析設定
+  tokenizer:
+    engine: "sudachi"          # sudachi（将来: mecab 等への差し替え想定）
+    sudachi_dict: "core"       # small / core / full
+
+# 生成 AI 設定
+ai:
+  provider: "gemini"           # gemini / ollama
+  input_max_chars: 800         # AI入力の最大文字数（超過分は切り捨て）
+  timeout_seconds: 30          # AI API呼び出しのタイムアウト（Gemini/Ollama共通）
+
+  gemini:
+    model: "gemini-2.5-flash"
+    max_output_tokens: 1024
+    temperature: 1.0
+
+  ollama:
+    # base_url は .env の OLLAMA_BASE_URL を参照する
+    model: "llama3"
+    temperature: 0.8
+    num_predict: 300            # max_tokens 相当
+
+# 投稿設定
+posting:
+  default_visibility: "home"   # home / public / followers
+  cooldown_minutes: 10         # 自動投稿間の最低間隔（reply/reaction は対象外）
+
+  night_mode:
+    enabled: true
+    start_hour: 23
+    end_hour: 5
+    # start_hour == end_hour の場合は「夜間モード無効」として扱う（24時間停止にはしない）
+
+  # 自動削除設定（post_type 別）
+  # 削除実行は maintenance.auto_delete_time に行う
+  auto_delete:
+    random_post:
+      enabled: true
+      after_hours: 72
+    scheduled_posts:
+      enabled: false
+      after_hours: 168          # 1週間
+    timeline_post:
+      enabled: false
+      after_hours: 72
+    horoscope:
+      enabled: false
+      after_hours: 48
+    wordcloud:
+      enabled: false
+      after_hours: 48
+    poll:
+      enabled: false
+      after_hours: 24
+
+  random_post:
+    enabled: true
+    interval_minutes: 90
+    probability: 1.0            # 0.0〜1.0 で実行確率
+
+  scheduled_posts:
+    enabled: true
+    probability: 1.0
+
+  weekday_posts:
+    enabled: true
+    probability: 0.8            # 曜日別投稿全体の基本確率（台詞ごとの上書き可）
+
+  timeline_post:
+    enabled: true
+    source: "home"              # home / local / social / global
+    interval_minutes: 120
+    max_notes_fetch: 20
+    min_keyword_length: 2
+    probability: 0.8
+
+  horoscope:
+    enabled: false
+    mode: "no_ai"               # no_ai / ai
+    post_hour: 7
+
+  wordcloud:
+    enabled: false
+    interval_hours: 12          # 生成間隔（最短 4 時間）
+    timeline_source: "home"     # home / local / social / global（ストック収集に使うチャンネル）
+    max_stock_size: 2000        # ストックする単語の上限数（超えたら古いものから削除）
+    min_stock_words: 30         # 生成に必要な最低ワード数。下回る場合はスキップ
+    max_note_length: 500        # 解析対象ノートの最大文字数（超過ノートはスキップ）
+    max_keywords_per_note: 10   # 1ノートから保存する単語数の上限
+    analysis_concurrency: 4     # 形態素解析の同時実行数上限
+    width: 800
+    height: 400
+    background_color: "white"
+    colormap: "coolwarm"        # matplotlib colormap 名（任意の colormap 文字列を指定可能）
+    # font_path: ""             # 省略時は起動時自動ダウンロードした M PLUS Rounded 1c を使用
+
+  # アンケート設定
+  poll:
+    enabled: false
+    mode: "tl_word"             # tl_word / static / ai
+    interval_hours: 12
+    probability: 0.7
+    expire_hours: 3             # 締め切り時間（デフォルト: 3時間）
+    multiple_choice: false      # 固定: 複数選択不可
+    choice_count: 4             # 固定: 4択
+    timeline_source: "home"     # tl_word モード時のTLソース (home / local / social / global)
+    max_notes_fetch: 50
+
+  # 記念日イベント投稿（scheduled_post_manager が処理）
+  event:
+    enabled: true
+
+# リアクション設定
+reaction:
+  enabled: true
+  mutual_only: true             # true: 相互フォローのみ対象
+  rules:
+    - keywords:
+        - "おはよう"
+        - "おはよ"
+      reactions:
+        - "🌄"
+        - "🌞"
+        - "🌅"
+    - keywords:
+        - "おやすみ"
+        - "おやすみなさい"
+      reactions:
+        - "🌙"
+        - "💤"
+
+# フォロー管理
+follow:
+  auto_follow_back: false
+  auto_unfollow_back: true
+  unfollow_grace_cycles: 2      # 連続N回の同期で未検出の場合にアンフォロー（誤アンフォロー防止）
+  check_interval_minutes: 30
+  keyword_follow_back:
+    enabled: true
+    # Phase 1: bot宛メンションのみ有効。一般TL投稿からのキーワード検出は行わない。
+    trigger: "mention_only"     # mention_only（Phase 1固定）
+    keywords:
+      - "フォローして"
+      - "followして"
+      - "相互フォロー"
+
+# リプライ設定
+reply:
+  enabled: true
+  mutual_only: true
+  rate_limit:
+    max_per_user_per_hour: 3
+  ai_concurrency: 2             # AI呼び出しの同時実行数上限
+
+# NGワード
+ng_words:
+  # Phase 1: 単純部分一致（大文字小文字は lower() で正規化、両端空白除去、空文字除外）
+  match_mode: "substring"       # substring（将来拡張: exact 等）
+  local:
+    - "死ね"
+    - "バカ"
+  external_urls:
+    - "https://raw.githubusercontent.com/sayonari/goodBadWordlist/main/ja/BadList.txt"
+  cache_file: "data/ng_words_cache.txt"   # 外部リストのキャッシュファイルパス
+
+# 親密度 (Phase 2)
+affinity:
+  enabled: false
+  rank2_threshold: 5
+  rank3_threshold: 20
+
+# メンテナンス
+maintenance:
+  enabled: true
+  cleanup_time: "03:00"
+  cleanup_days: 30
+  auto_delete_time: "03:30"    # 自己削除の実行時刻（全 post_type 共通）
+  backup_time: "04:00"
+  backup_compress: true
+  keep_backups: 7
+  log_cleanup_time: "05:00"    # 古いログファイルの削除時刻
+  log_cleanup_days: 30
+  stats_time: "06:00"
+  ng_word_refresh_time: "03:00"  # 外部NGワードリストの日次再取得時刻
+
+# ストレージ
+storage:
+  database_path: "data/riina_bot.db"
+  log_dir: "logs"
+  wordcloud_dir: "data/wordcloud"
+
+# ログ設定（LOG_LEVEL は .env から取得）
+logging:
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+  date_format: "%Y-%m-%d %H:%M:%S"
+  file_rotation: "midnight"      # midnight（日付ローテーション）
+  file_retention_days: 30        # ログファイル保持日数（maintenance.log_cleanup_days と連動）
+  file_name_pattern: "riina_bot_{date}.log"   # {date} は YYYY-MM-DD に置換

@@ -1,0 +1,11 @@
+services:
+  bot:
+    build: .
+    container_name: mi_riina_bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./config:/app/config:ro
+      - ./data:/app/data
+      - ./logs:/app/logs

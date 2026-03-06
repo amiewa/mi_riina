@@ -1,26 +1,35 @@
 # Misskey Bot Riina v2 Requirements
 
-# Misskey Client
-mipac
-websockets
+# Misskey API（破壊的変更リスクがあるためマイナーバージョン固定）
+mipac>=0.7,<0.8
 
-# AI Clients
-google-genai
-aiohttp
+# 生成 AI
+google-genai>=1.0,<2.0
 
-# Natural Language Processing
-sudachipy
+# HTTP（Ollama API + 外部NGワードリスト取得 + 直接 Misskey API 呼び出し）
+aiohttp>=3.9,<4.0
+
+# DB
+aiosqlite>=0.19,<1.0
+
+# スケジューラ（4.x は API が完全に別物のため 3.x に固定）
+APScheduler>=3.10,<4.0
+
+# WebSocket
+websockets>=12.0,<14.0
+
+# 設定管理
+PyYAML>=6.0,<7.0
+pydantic>=2.0,<3.0
+pydantic-settings>=2.0,<3.0
+
+# 形態素解析
+sudachipy>=0.6,<1.0
 sudachidict-core
 
-# Core Utilities
-pydantic
-apscheduler
-aiosqlite
-pyyaml
-
-# Testing
-pytest
-pytest-asyncio
+# テスト（開発時のみ）
+pytest>=8.0,<9.0
+pytest-asyncio>=0.23,<1.0
 
 # Linting/Formatting
 ruff
