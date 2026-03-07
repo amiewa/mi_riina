@@ -263,8 +263,9 @@ async def main() -> None:
         if config.posting.poll.enabled:
             scheduler.add_job(
                 poll_manager.execute_poll,
-                "interval",
-                hours=config.posting.poll.interval_hours,
+                "cron",
+                hour=f"*/{config.posting.poll.interval_hours}",
+                minute=0,
                 misfire_grace_time=60,
             )
 
