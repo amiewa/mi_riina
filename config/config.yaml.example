@@ -14,20 +14,20 @@ ai:
   timeout_seconds: 30          # AI API呼び出しのタイムアウト（全プロバイダ共通）
 
   gemini:
-    model: "gemini-2.5-flash"
+    model: "gemini-1.5-flash"
     max_output_tokens: 1024
     temperature: 1.0
 
   ollama:
     # base_url は .env の OLLAMA_BASE_URL を参照する
     # auth_token は .env の OLLAMA_API_KEY を参照する（Ollama Cloud 使用時のみ）
-    model: "qwen3.5:cloud"
+    model: "qwen2.5:latest"
     temperature: 0.8
     num_predict: 300            # max_tokens 相当
 
   openrouter:
     # api_key は .env の OPENROUTER_API_KEY を参照する
-    model: "stepfun/step-3.5-flash:free"
+    model: "google/gemini-flash-1.5:free"
     max_tokens: 1024
     temperature: 1.0
 

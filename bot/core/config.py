@@ -35,7 +35,7 @@ class BotConfig(BaseModel):
 class GeminiConfig(BaseModel):
     """Gemini 設定"""
 
-    model: str = "gemini-2.5-flash"
+    model: str = "gemini-1.5-flash"
     max_output_tokens: int = Field(default=1024, ge=1)
     temperature: float = Field(default=1.0, ge=0.0, le=2.0)
 
@@ -43,7 +43,7 @@ class GeminiConfig(BaseModel):
 class OllamaConfig(BaseModel):
     """Ollama 設定"""
 
-    model: str = "qwen3.5:cloud"
+    model: str = "qwen2.5:latest"
     temperature: float = Field(default=0.8, ge=0.0, le=2.0)
     num_predict: int = Field(default=300, ge=1)
 
@@ -51,7 +51,7 @@ class OllamaConfig(BaseModel):
 class OpenRouterConfig(BaseModel):
     """OpenRouter 設定"""
 
-    model: str = "stepfun/step-3.5-flash:free"
+    model: str = "google/gemini-flash-1.5:free"
     max_tokens: int = Field(default=1024, ge=1)
     temperature: float = Field(default=1.0, ge=0.0, le=2.0)
 

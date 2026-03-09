@@ -85,7 +85,7 @@ class OpenRouterClient(AIClientBase):
                     data = await response.json()
                     choices = data.get("choices", [])
                     if choices and "message" in choices[0]:
-                        content = choices[0]["message"].get("content", "")
+                        content = choices[0]["message"].get("content") or ""
                         logger.debug(
                             "OpenRouter 応答を取得しました（%d 文字）", len(content)
                         )

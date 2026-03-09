@@ -96,7 +96,7 @@ class OllamaClient(AIClientBase):
                         raise RuntimeError(f"Ollama API エラー: {resp.status}")
 
                     data = await resp.json()
-                    response_text = data.get("message", {}).get("content", "")
+                    response_text = data.get("message", {}).get("content") or ""
 
                     if not response_text:
                         logger.warning("Ollama から空の応答が返されました")
