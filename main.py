@@ -22,6 +22,7 @@ from bot.core.gemini_client import GeminiClient
 from bot.core.misskey_client import MisskeyClient
 from bot.core.ollama_client import OllamaClient
 from bot.managers.follow_manager import FollowManager
+from bot.managers.horoscope_manager import HoroscopeManager
 from bot.managers.poll_manager import PollManager
 from bot.managers.post_manager import PostManager
 from bot.managers.reaction_manager import ReactionManager
@@ -30,6 +31,7 @@ from bot.managers.scheduled_post_manager import ScheduledPostManager
 from bot.managers.streaming_manager import StreamingManager
 from bot.managers.timeline_post_manager import TimelinePostManager
 from bot.managers.weekday_post_manager import WeekdayPostManager
+from bot.managers.wordcloud_manager import WordcloudManager
 from bot.utils.ng_word_manager import NGWordManager
 from bot.utils.rate_limiter import RateLimiter
 from bot.utils.serif_loader import SerifLoader
@@ -198,6 +200,13 @@ async def main() -> None:
         poll_manager = PollManager(
             config, db, misskey, ai_client, tokenizer, ng_word_manager, serif_loader
         )
+        horoscope_manager = HoroscopeManager(
+            config, db, misskey, ai_client, ng_word_manager
+        )
+        wordcloud_manager = WordcloudManager(
+            config, db, misskey, tokenizer, ng_word_manager, session
+        )
+        await wordcloud_manager.initialize()
 
         # 11. StreamingManager にイベントハンドラ登録
         streaming = StreamingManager(
@@ -208,6 +217,7 @@ async def main() -> None:
 
         # NoteEvent ハンドラ
         streaming.on("note", reaction_manager.on_note)
+        streaming.on("note", wordcloud_manager.on_note)  # ストック収集
 
         # MentionEvent ハンドラ
         streaming.on("mention", reply_manager.on_mention)
@@ -265,6 +275,26 @@ async def main() -> None:
                 poll_manager.execute_poll,
                 "cron",
                 hour=f"*/{config.posting.poll.interval_hours}",
+                minute=0,
+                misfire_grace_time=60,
+            )
+
+        # 星座占い
+        if config.posting.horoscope.enabled:
+            scheduler.add_job(
+                horoscope_manager.execute_horoscope,
+                "cron",
+                hour=config.posting.horoscope.post_hour,
+                minute=0,
+                misfire_grace_time=60,
+            )
+
+        # ワードクラウド
+        if config.posting.wordcloud.enabled:
+            scheduler.add_job(
+                wordcloud_manager.execute_wordcloud,
+                "cron",
+                hour=f"*/{config.posting.wordcloud.interval_hours}",
                 minute=0,
                 misfire_grace_time=60,
             )
