@@ -45,7 +45,9 @@ class PostManager:
 
         # 夜間モード判定
         night = self._config.posting.night_mode
-        if is_night_mode(night.start_hour, night.end_hour, night.enabled, self._config.bot.timezone):
+        if is_night_mode(
+            night.start_hour, night.end_hour, night.enabled, self._config.bot.timezone
+        ):
             logger.debug("夜間モード中のためランダム投稿をスキップします")
             return
 

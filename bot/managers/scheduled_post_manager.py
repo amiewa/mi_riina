@@ -48,7 +48,9 @@ class ScheduledPostManager:
 
         # 夜間モード判定
         night = self._config.posting.night_mode
-        if is_night_mode(night.start_hour, night.end_hour, night.enabled, self._config.bot.timezone):
+        if is_night_mode(
+            night.start_hour, night.end_hour, night.enabled, self._config.bot.timezone
+        ):
             logger.debug("夜間モード中のため定時投稿をスキップします")
             return
 
@@ -99,7 +101,8 @@ class ScheduledPostManager:
             await self._db.update_post_note_id(post_id, note_id)
             logger.info(
                 "定時投稿を実行しました（note_id=%s, execution_key=%s）",
-                note_id, execution_key,
+                note_id,
+                execution_key,
             )
         except Exception as e:
             logger.error("定時投稿に失敗しました: %s", str(e))
@@ -152,7 +155,9 @@ class ScheduledPostManager:
             await self._db.update_post_note_id(post_id, note_id)
             logger.info(
                 "イベント投稿を実行しました（%s: %s, note_id=%s）",
-                event_info.get("name", date_key), execution_key, note_id,
+                event_info.get("name", date_key),
+                execution_key,
+                note_id,
             )
         except Exception as e:
             logger.error("イベント投稿に失敗しました: %s", str(e))

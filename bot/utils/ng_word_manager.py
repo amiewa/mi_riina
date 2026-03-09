@@ -43,7 +43,9 @@ class NGWordManager:
         self._ng_words = local | external
         logger.info(
             "NGワードリストを初期化しました（ローカル: %d 件, 外部: %d 件, 合計: %d 件）",
-            len(local), len(external), len(self._ng_words),
+            len(local),
+            len(external),
+            len(self._ng_words),
         )
 
     async def refresh(self) -> None:
@@ -51,9 +53,7 @@ class NGWordManager:
         external = await self._fetch_external_words()
         local = {w.lower().strip() for w in self._local_words if w.strip()}
         self._ng_words = local | external
-        logger.info(
-            "NGワードリストを更新しました（合計: %d 件）", len(self._ng_words)
-        )
+        logger.info("NGワードリストを更新しました（合計: %d 件）", len(self._ng_words))
 
     def contains_ng_word(self, text: str) -> bool:
         """テキストにNGワードが含まれているかを判定する。
@@ -85,33 +85,38 @@ class NGWordManager:
             return external_words
 
         if self._session is None:
-            logger.warning("HTTP セッションが未設定のため、外部NGワードリストを取得できません")
+            logger.warning(
+                "HTTP セッションが未設定のため、外部NGワードリストを取得できません"
+            )
             return self._load_cache()
 
         for url in self._external_urls:
             try:
-                async with self._session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                async with self._session.get(
+                    url, timeout=aiohttp.ClientTimeout(total=30)
+                ) as resp:
                     if resp.status == 200:
                         text = await resp.text()
                         words = {
-                            w.lower().strip()
-                            for w in text.splitlines()
-                            if w.strip()
+                            w.lower().strip() for w in text.splitlines() if w.strip()
                         }
                         external_words |= words
                         logger.info(
                             "外部NGワードリストを取得しました: %s（%d 件）",
-                            url[:100], len(words),
+                            url[:100],
+                            len(words),
                         )
                     else:
                         logger.warning(
                             "外部NGワードリストの取得に失敗しました: %s (status=%d)",
-                            url[:100], resp.status,
+                            url[:100],
+                            resp.status,
                         )
             except Exception as e:
                 logger.warning(
                     "外部NGワードリストの取得に失敗しました: %s (%s)",
-                    url[:100], str(e),
+                    url[:100],
+                    str(e),
                 )
 
         if external_words:
@@ -136,19 +141,13 @@ class NGWordManager:
         if self._cache_file.exists():
             try:
                 text = self._cache_file.read_text(encoding="utf-8")
-                words = {
-                    w.lower().strip()
-                    for w in text.splitlines()
-                    if w.strip()
-                }
-                logger.info(
-                    "NGワードキャッシュからロードしました（%d 件）", len(words)
-                )
+                words = {w.lower().strip() for w in text.splitlines() if w.strip()}
+                logger.info("NGワードキャッシュからロードしました（%d 件）", len(words))
                 return words
             except Exception as e:
-                logger.warning(
-                    "NGワードキャッシュの読み込みに失敗しました: %s", str(e)
-                )
+                logger.warning("NGワードキャッシュの読み込みに失敗しました: %s", str(e))
 
-        logger.warning("外部NGワードリストを取得できず、キャッシュもありません。ローカルリストのみで運用します")
+        logger.warning(
+            "外部NGワードリストを取得できず、キャッシュもありません。ローカルリストのみで運用します"
+        )
         return set()

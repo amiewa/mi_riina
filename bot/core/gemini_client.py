@@ -78,9 +78,7 @@ class GeminiClient(AIClientBase):
                 raise ValueError("Gemini から空の応答が返されました")
 
         except asyncio.TimeoutError:
-            logger.error(
-                "Gemini API がタイムアウトしました（%d秒）", self._timeout
-            )
+            logger.error("Gemini API がタイムアウトしました（%d秒）", self._timeout)
             raise
         except Exception as e:
             logger.error("Gemini API エラー: %s", str(e))

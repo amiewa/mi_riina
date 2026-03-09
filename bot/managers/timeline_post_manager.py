@@ -50,7 +50,9 @@ class TimelinePostManager:
 
         # 夜間モード判定
         night = self._config.posting.night_mode
-        if is_night_mode(night.start_hour, night.end_hour, night.enabled, self._config.bot.timezone):
+        if is_night_mode(
+            night.start_hour, night.end_hour, night.enabled, self._config.bot.timezone
+        ):
             logger.debug("夜間モード中のためTL連動投稿をスキップします")
             return
 
@@ -148,7 +150,8 @@ class TimelinePostManager:
             await self._db.update_post_note_id(post_id, note_id)
             logger.info(
                 "TL連動投稿を実行しました（keyword=%s, note_id=%s）",
-                keyword, note_id,
+                keyword,
+                note_id,
             )
         except Exception as e:
             logger.error("TL連動投稿に失敗しました: %s", str(e))

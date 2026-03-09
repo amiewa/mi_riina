@@ -19,12 +19,14 @@ logger = logging.getLogger(__name__)
 
 class TokenizerConfig(BaseModel):
     """形態素解析設定"""
+
     engine: Literal["sudachi"] = "sudachi"
     sudachi_dict: Literal["small", "core", "full"] = "core"
 
 
 class BotConfig(BaseModel):
     """bot 基本設定"""
+
     character_prompt_file: str = "config/character_prompt.md"
     timezone: str = "Asia/Tokyo"
     tokenizer: TokenizerConfig = TokenizerConfig()
@@ -32,6 +34,7 @@ class BotConfig(BaseModel):
 
 class GeminiConfig(BaseModel):
     """Gemini 設定"""
+
     model: str = "gemini-2.5-flash"
     max_output_tokens: int = Field(default=1024, ge=1)
     temperature: float = Field(default=1.0, ge=0.0, le=2.0)
@@ -39,6 +42,7 @@ class GeminiConfig(BaseModel):
 
 class OllamaConfig(BaseModel):
     """Ollama 設定"""
+
     model: str = "llama3"
     temperature: float = Field(default=0.8, ge=0.0, le=2.0)
     num_predict: int = Field(default=300, ge=1)
@@ -46,6 +50,7 @@ class OllamaConfig(BaseModel):
 
 class AIConfig(BaseModel):
     """生成 AI 設定"""
+
     provider: Literal["gemini", "ollama"] = "gemini"
     input_max_chars: int = Field(default=800, ge=1)
     timeout_seconds: int = Field(default=30, ge=1)
@@ -55,6 +60,7 @@ class AIConfig(BaseModel):
 
 class NightModeConfig(BaseModel):
     """夜間モード設定"""
+
     enabled: bool = True
     start_hour: int = Field(default=23, ge=0, le=23)
     end_hour: int = Field(default=5, ge=0, le=23)
@@ -62,22 +68,35 @@ class NightModeConfig(BaseModel):
 
 class AutoDeleteItemConfig(BaseModel):
     """個別自動削除設定"""
+
     enabled: bool = False
     after_hours: int = Field(default=72, ge=1)
 
 
 class AutoDeleteConfig(BaseModel):
     """自動削除設定"""
-    random_post: AutoDeleteItemConfig = AutoDeleteItemConfig(enabled=True, after_hours=72)
-    scheduled_posts: AutoDeleteItemConfig = AutoDeleteItemConfig(enabled=False, after_hours=168)
-    timeline_post: AutoDeleteItemConfig = AutoDeleteItemConfig(enabled=False, after_hours=72)
-    horoscope: AutoDeleteItemConfig = AutoDeleteItemConfig(enabled=False, after_hours=48)
-    wordcloud: AutoDeleteItemConfig = AutoDeleteItemConfig(enabled=False, after_hours=48)
+
+    random_post: AutoDeleteItemConfig = AutoDeleteItemConfig(
+        enabled=True, after_hours=72
+    )
+    scheduled_posts: AutoDeleteItemConfig = AutoDeleteItemConfig(
+        enabled=False, after_hours=168
+    )
+    timeline_post: AutoDeleteItemConfig = AutoDeleteItemConfig(
+        enabled=False, after_hours=72
+    )
+    horoscope: AutoDeleteItemConfig = AutoDeleteItemConfig(
+        enabled=False, after_hours=48
+    )
+    wordcloud: AutoDeleteItemConfig = AutoDeleteItemConfig(
+        enabled=False, after_hours=48
+    )
     poll: AutoDeleteItemConfig = AutoDeleteItemConfig(enabled=False, after_hours=24)
 
 
 class RandomPostConfig(BaseModel):
     """ランダム投稿設定"""
+
     enabled: bool = True
     interval_minutes: int = Field(default=90, ge=1)
     probability: float = Field(default=1.0, ge=0.0, le=1.0)
@@ -85,18 +104,21 @@ class RandomPostConfig(BaseModel):
 
 class ScheduledPostsConfig(BaseModel):
     """定時投稿設定"""
+
     enabled: bool = True
     probability: float = Field(default=1.0, ge=0.0, le=1.0)
 
 
 class WeekdayPostsConfig(BaseModel):
     """曜日別投稿設定"""
+
     enabled: bool = True
     probability: float = Field(default=0.8, ge=0.0, le=1.0)
 
 
 class TimelinePostConfig(BaseModel):
     """タイムライン連動投稿設定"""
+
     enabled: bool = True
     source: Literal["home", "local", "social", "global"] = "home"
     interval_minutes: int = Field(default=120, ge=1)
@@ -107,6 +129,7 @@ class TimelinePostConfig(BaseModel):
 
 class HoroscopeConfig(BaseModel):
     """星座占い設定"""
+
     enabled: bool = False
     mode: Literal["no_ai", "ai"] = "no_ai"
     post_hour: int = Field(default=7, ge=0, le=23)
@@ -114,6 +137,7 @@ class HoroscopeConfig(BaseModel):
 
 class WordcloudConfig(BaseModel):
     """ワードクラウド設定"""
+
     enabled: bool = False
     interval_hours: int = Field(default=12, ge=4)
     timeline_source: Literal["home", "local", "social", "global"] = "home"
@@ -138,6 +162,7 @@ class WordcloudConfig(BaseModel):
 
 class PollConfig(BaseModel):
     """アンケート設定"""
+
     enabled: bool = False
     mode: Literal["tl_word", "static", "ai"] = "tl_word"
     interval_hours: int = Field(default=12, ge=1)
@@ -151,11 +176,13 @@ class PollConfig(BaseModel):
 
 class EventConfig(BaseModel):
     """記念日イベント設定"""
+
     enabled: bool = True
 
 
 class PostingConfig(BaseModel):
     """投稿設定"""
+
     default_visibility: Literal["home", "public", "followers"] = "home"
     cooldown_minutes: int = Field(default=10, ge=0)
     night_mode: NightModeConfig = NightModeConfig()
@@ -172,12 +199,14 @@ class PostingConfig(BaseModel):
 
 class ReactionRule(BaseModel):
     """リアクションルール"""
+
     keywords: list[str]
     reactions: list[str]
 
 
 class ReactionConfig(BaseModel):
     """リアクション設定"""
+
     enabled: bool = True
     mutual_only: bool = True
     rules: list[ReactionRule] = []
@@ -185,6 +214,7 @@ class ReactionConfig(BaseModel):
 
 class KeywordFollowBackConfig(BaseModel):
     """キーワードフォローバック設定"""
+
     enabled: bool = True
     trigger: str = "mention_only"
     keywords: list[str] = []
@@ -192,6 +222,7 @@ class KeywordFollowBackConfig(BaseModel):
 
 class FollowConfig(BaseModel):
     """フォロー管理設定"""
+
     auto_follow_back: bool = False
     auto_unfollow_back: bool = True
     unfollow_grace_cycles: int = Field(default=2, ge=1)
@@ -201,11 +232,13 @@ class FollowConfig(BaseModel):
 
 class RateLimitConfig(BaseModel):
     """レート制限設定"""
+
     max_per_user_per_hour: int = Field(default=3, ge=1)
 
 
 class ReplyConfig(BaseModel):
     """リプライ設定"""
+
     enabled: bool = True
     mutual_only: bool = True
     rate_limit: RateLimitConfig = RateLimitConfig()
@@ -214,6 +247,7 @@ class ReplyConfig(BaseModel):
 
 class NGWordsConfig(BaseModel):
     """NGワード設定"""
+
     match_mode: str = "substring"
     local: list[str] = []
     external_urls: list[str] = []
@@ -222,6 +256,7 @@ class NGWordsConfig(BaseModel):
 
 class AffinityConfig(BaseModel):
     """親密度設定（Phase 2）"""
+
     enabled: bool = False
     rank2_threshold: int = Field(default=5, ge=1)
     rank3_threshold: int = Field(default=20, ge=1)
@@ -229,6 +264,7 @@ class AffinityConfig(BaseModel):
 
 class MaintenanceConfig(BaseModel):
     """メンテナンス設定"""
+
     enabled: bool = True
     cleanup_time: str = "03:00"
     cleanup_days: int = Field(default=30, ge=1)
@@ -244,6 +280,7 @@ class MaintenanceConfig(BaseModel):
 
 class StorageConfig(BaseModel):
     """ストレージ設定"""
+
     database_path: str = "data/riina_bot.db"
     log_dir: str = "logs"
     wordcloud_dir: str = "data/wordcloud"
@@ -251,6 +288,7 @@ class StorageConfig(BaseModel):
 
 class LoggingConfig(BaseModel):
     """ログ設定"""
+
     format: str = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
     date_format: str = "%Y-%m-%d %H:%M:%S"
     file_rotation: str = "midnight"
@@ -263,6 +301,7 @@ class LoggingConfig(BaseModel):
 
 class AppConfig(BaseModel):
     """アプリケーション全体の設定"""
+
     bot: BotConfig = BotConfig()
     ai: AIConfig = AIConfig()
     posting: PostingConfig = PostingConfig()

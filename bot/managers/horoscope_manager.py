@@ -78,7 +78,20 @@ HOROSCOPE_PROMPT_TEMPLATE = """
 """
 
 # 12星座シンボルのセット（バリデーション用）
-ZODIAC_SYMBOLS = {"♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"}
+ZODIAC_SYMBOLS = {
+    "♈",
+    "♉",
+    "♊",
+    "♋",
+    "♌",
+    "♍",
+    "♎",
+    "♏",
+    "♐",
+    "♑",
+    "♒",
+    "♓",
+}
 
 
 class HoroscopeManager:
@@ -141,6 +154,7 @@ class HoroscopeManager:
             scheduled_delete_at = None
             if auto_delete.enabled:
                 from datetime import timedelta
+
                 delete_time = now + timedelta(hours=auto_delete.after_hours)
                 scheduled_delete_at = delete_time.isoformat()
 
@@ -188,14 +202,16 @@ class HoroscopeManager:
             love = rng.randint(1, 3)
             health = rng.randint(1, 3)
             total = money + love + health
-            results.append({
-                "symbol": symbol,
-                "name": name,
-                "money": money,
-                "love": love,
-                "health": health,
-                "total": total,
-            })
+            results.append(
+                {
+                    "symbol": symbol,
+                    "name": name,
+                    "money": money,
+                    "love": love,
+                    "health": health,
+                    "total": total,
+                }
+            )
 
         # 合計スコアで降順ソート（安定ソートで同点は入力順を維持）
         results.sort(key=lambda x: x["total"], reverse=True)
@@ -221,7 +237,9 @@ class HoroscopeManager:
             # スコア表示（絵文字 + 全角スペースパディング）
             money_score = SCORE_EMOJIS["money"] * r["money"] + "　" * (3 - r["money"])
             love_score = SCORE_EMOJIS["love"] * r["love"] + "　" * (3 - r["love"])
-            health_score = SCORE_EMOJIS["health"] * r["health"] + "　" * (3 - r["health"])
+            health_score = SCORE_EMOJIS["health"] * r["health"] + "　" * (
+                3 - r["health"]
+            )
 
             line = f"{rank_str} {r['symbol']}{name_padded}金運{money_score}恋愛{love_score}健康{health_score}"
             lines.append(line)
@@ -247,7 +265,9 @@ class HoroscopeManager:
                 # バリデーション: 12星座が全て含まれているか
                 if self._validate_ai_horoscope(text):
                     # NGワードチェック
-                    if self._ng_word_manager and self._ng_word_manager.contains_ng_word(text):
+                    if self._ng_word_manager and self._ng_word_manager.contains_ng_word(
+                        text
+                    ):
                         logger.warning(
                             "AI占いにNGワードが含まれています。no_ai にフォールバックします"
                         )

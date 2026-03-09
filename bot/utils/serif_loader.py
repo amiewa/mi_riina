@@ -47,9 +47,7 @@ class SerifLoader:
             else:
                 logger.warning("台詞ファイルが見つかりません: %s", filepath)
 
-        logger.info(
-            "台詞ファイルを読み込みました（%d 件）", len(self._data)
-        )
+        logger.info("台詞ファイルを読み込みました（%d 件）", len(self._data))
 
     def reload_all(self) -> None:
         """全台詞ファイルを再読み込みする（手動トリガー用）。"""
@@ -126,12 +124,14 @@ class SerifLoader:
         except yaml.YAMLError as e:
             logger.warning(
                 "台詞ファイルのパースに失敗しました（旧データを維持）: %s (%s)",
-                filepath.name, str(e),
+                filepath.name,
+                str(e),
             )
         except Exception as e:
             logger.error(
                 "台詞ファイルの読み込みに失敗しました: %s (%s)",
-                filepath.name, str(e),
+                filepath.name,
+                str(e),
             )
 
     async def _watch_loop(self) -> None:
@@ -143,9 +143,7 @@ class SerifLoader:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(
-                    "台詞ファイル監視でエラーが発生しました: %s", str(e)
-                )
+                logger.error("台詞ファイル監視でエラーが発生しました: %s", str(e))
 
     def _reload_if_changed(self) -> None:
         """mtime が変わったファイルのみ再読み込みする。"""
@@ -158,7 +156,5 @@ class SerifLoader:
             old_mtime = self._mtimes.get(str(filepath), 0)
 
             if current_mtime != old_mtime:
-                logger.info(
-                    "台詞ファイルの変更を検出しました: %s", filepath.name
-                )
+                logger.info("台詞ファイルの変更を検出しました: %s", filepath.name)
                 self._load_file(filepath)

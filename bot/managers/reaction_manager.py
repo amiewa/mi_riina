@@ -39,7 +39,9 @@ class ReactionManager:
 
         # 夜間モード判定
         night = self._config.posting.night_mode
-        if is_night_mode(night.start_hour, night.end_hour, night.enabled, self._config.bot.timezone):
+        if is_night_mode(
+            night.start_hour, night.end_hour, night.enabled, self._config.bot.timezone
+        ):
             return
 
         # 相互フォローチェック
@@ -62,16 +64,13 @@ class ReactionManager:
                     # マッチした → リアクション送信
                     reaction = random.choice(rule.reactions)
                     try:
-                        await self._misskey.create_reaction(
-                            event.note_id, reaction
-                        )
+                        await self._misskey.create_reaction(event.note_id, reaction)
                         await self._db.record_reaction(event.note_id)
                         logger.debug(
                             "リアクションを送信しました（note_id=%s, reaction=%s）",
-                            event.note_id, reaction,
+                            event.note_id,
+                            reaction,
                         )
                     except Exception as e:
-                        logger.error(
-                            "リアクション送信に失敗しました: %s", str(e)
-                        )
+                        logger.error("リアクション送信に失敗しました: %s", str(e))
                     return  # 最初にマッチしたルールのみ

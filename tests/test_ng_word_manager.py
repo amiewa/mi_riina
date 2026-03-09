@@ -80,7 +80,9 @@ class TestNGWordManager:
         )
         await mgr.initialize()
         assert mgr.contains_ng_word("テストです") is True
-        assert mgr.contains_ng_word("これはNGです") is True  # NGはlower()で「ng」になりマッチする
+        assert (
+            mgr.contains_ng_word("これはNGです") is True
+        )  # NGはlower()で「ng」になりマッチする
         assert mgr.contains_ng_word("これはngです") is True
 
 

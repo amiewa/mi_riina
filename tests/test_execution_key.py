@@ -1,6 +1,5 @@
 """execution_key 二重投稿防止のテスト"""
 
-
 import pytest
 import pytest_asyncio
 from pathlib import Path

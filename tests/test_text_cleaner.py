@@ -16,7 +16,10 @@ class TestCleanNoteText:
 
     def test_remove_url(self) -> None:
         """URL を除去する"""
-        assert clean_note_text("こんにちは https://example.com テスト") == "こんにちは  テスト"
+        assert (
+            clean_note_text("こんにちは https://example.com テスト")
+            == "こんにちは  テスト"
+        )
 
     def test_remove_multiple_urls(self) -> None:
         """複数の URL を除去する"""
@@ -43,7 +46,10 @@ class TestCleanNoteText:
 
     def test_remove_mfm(self) -> None:
         """MFM 構文を除去する"""
-        assert clean_note_text("テスト $[spin テキスト] 終わり") == "テスト テキスト 終わり"
+        assert (
+            clean_note_text("テスト $[spin テキスト] 終わり")
+            == "テスト テキスト 終わり"
+        )
 
     def test_remove_nested_mfm(self) -> None:
         """入れ子の MFM を除去する"""

@@ -48,9 +48,7 @@ class SudachiTokenizer(TokenizerBase):
         # 辞書タイプに応じて初期化
         try:
             self._tokenizer = Dictionary(dict_type=dict_type).create()
-            logger.info(
-                "SudachiPy を初期化しました（辞書: %s）", dict_type
-            )
+            logger.info("SudachiPy を初期化しました（辞書: %s）", dict_type)
         except Exception as e:
             logger.error("SudachiPy の初期化に失敗しました: %s", str(e))
             raise

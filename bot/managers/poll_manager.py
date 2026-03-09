@@ -80,7 +80,9 @@ class PollManager:
 
         # 夜間モード判定
         night = self._config.posting.night_mode
-        if is_night_mode(night.start_hour, night.end_hour, night.enabled, self._config.bot.timezone):
+        if is_night_mode(
+            night.start_hour, night.end_hour, night.enabled, self._config.bot.timezone
+        ):
             return
 
         # 確率判定
@@ -133,11 +135,15 @@ class PollManager:
                 scheduled_delete_at=scheduled_delete_at,
             )
         except sqlite3.IntegrityError:
-            logger.info("アンケートは既に実行済みです（execution_key=%s）", execution_key)
+            logger.info(
+                "アンケートは既に実行済みです（execution_key=%s）", execution_key
+            )
             return
 
         # expiresAt 計算（UNIXミリ秒）
-        expires_at = int((now + timedelta(hours=poll_config.expire_hours)).timestamp() * 1000)
+        expires_at = int(
+            (now + timedelta(hours=poll_config.expire_hours)).timestamp() * 1000
+        )
 
         try:
             note_id = await self._misskey.create_note(
@@ -150,7 +156,9 @@ class PollManager:
                 },
             )
             await self._db.update_post_note_id(post_id, note_id)
-            logger.info("アンケートを投稿しました（mode=%s, note_id=%s）", mode, note_id)
+            logger.info(
+                "アンケートを投稿しました（mode=%s, note_id=%s）", mode, note_id
+            )
         except Exception as e:
             logger.error("アンケート投稿に失敗しました: %s", str(e))
             await self._db.delete_post_by_id(post_id)
@@ -193,9 +201,7 @@ class PollManager:
             cleaned = clean_note_text(note.text)
             if not cleaned:
                 continue
-            kws = await asyncio.to_thread(
-                self._tokenizer.extract_keywords, cleaned
-            )
+            kws = await asyncio.to_thread(self._tokenizer.extract_keywords, cleaned)
             for kw in kws:
                 if not self._ng_word.contains_ng_word(kw):
                     keywords.append(kw)
@@ -263,7 +269,7 @@ class PollManager:
         """ai モードの選択肢を生成する。"""
         prompt = (
             "投票の質問文を1つと、カジュアルで面白い選択肢を4つ生成してください。\n"
-            "JSONで {\"question\": \"質問文\", \"choices\": [\"選択肢1\", \"選択肢2\", \"選択肢3\", \"選択肢4\"]} "
+            'JSONで {"question": "質問文", "choices": ["選択肢1", "選択肢2", "選択肢3", "選択肢4"]} '
             "の形式で返してください。JSON以外の文字は含めないでください。"
         )
 
@@ -280,11 +286,16 @@ class PollManager:
             # NGワードチェック
             all_text = validated.question + " ".join(validated.choices)
             if self._ng_word.contains_ng_word(all_text):
-                logger.warning("AIアンケートにNGワードが含まれていました。staticモードにフォールバックします")
+                logger.warning(
+                    "AIアンケートにNGワードが含まれていました。staticモードにフォールバックします"
+                )
                 return self._generate_static_poll()
 
             return validated.question, validated.choices
 
         except (json.JSONDecodeError, Exception) as e:
-            logger.warning("AIアンケート生成に失敗しました: %s。staticモードにフォールバックします", str(e))
+            logger.warning(
+                "AIアンケート生成に失敗しました: %s。staticモードにフォールバックします",
+                str(e),
+            )
             return self._generate_static_poll()

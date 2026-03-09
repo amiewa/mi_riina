@@ -49,7 +49,11 @@ class StreamingManager:
         token: str,
         channels: list[str] | None = None,
     ) -> None:
-        self._instance_url = instance_url.rstrip("/").replace("https://", "wss://").replace("http://", "ws://")
+        self._instance_url = (
+            instance_url.rstrip("/")
+            .replace("https://", "wss://")
+            .replace("http://", "ws://")
+        )
         self._token = token
         self._channels = channels or ["homeTimeline", "main"]
         self._handlers: dict[str, list[Callable]] = {}
@@ -67,7 +71,8 @@ class StreamingManager:
         self._handlers.setdefault(event_type, []).append(handler)
         logger.debug(
             "ハンドラを登録しました: %s -> %s",
-            event_type, handler.__qualname__,
+            event_type,
+            handler.__qualname__,
         )
 
     async def start(self) -> None:
@@ -114,9 +119,11 @@ class StreamingManager:
                 self._ws = None
 
             if self._running:
-                wait = min(5 * (2 ** self._retry_count), 300)
+                wait = min(5 * (2**self._retry_count), 300)
                 self._retry_count += 1
-                logger.info("%.1f 秒後に再接続します（リトライ #%d）", wait, self._retry_count)
+                logger.info(
+                    "%.1f 秒後に再接続します（リトライ #%d）", wait, self._retry_count
+                )
                 await asyncio.sleep(wait)
 
     async def _subscribe_channels(self) -> None:
@@ -146,7 +153,9 @@ class StreamingManager:
                     try:
                         await asyncio.wait_for(pong, timeout=10)
                     except asyncio.TimeoutError:
-                        logger.warning("Pong がタイムアウトしました。接続を強制切断します")
+                        logger.warning(
+                            "Pong がタイムアウトしました。接続を強制切断します"
+                        )
                         await self._ws.close()
                         return
         except Exception as e:
@@ -164,7 +173,9 @@ class StreamingManager:
             except json.JSONDecodeError:
                 logger.warning("不正なJSONメッセージを受信しました")
             except Exception as e:
-                logger.error("メッセージ処理でエラーが発生しました: %s", str(e), exc_info=True)
+                logger.error(
+                    "メッセージ処理でエラーが発生しました: %s", str(e), exc_info=True
+                )
 
     async def _process_message(self, data: dict) -> None:
         """受信メッセージを解析してディスパッチする。"""
@@ -201,7 +212,8 @@ class StreamingManager:
             except Exception as e:
                 logger.error(
                     "ハンドラ %s でエラーが発生しました: %s",
-                    handler.__qualname__, str(e),
+                    handler.__qualname__,
+                    str(e),
                     exc_info=True,
                 )
 

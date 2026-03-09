@@ -210,8 +210,14 @@ class Database:
                (post_type, execution_key, content, posted_at,
                 scheduled_delete_at, drive_file_id)
                VALUES (?, ?, ?, ?, ?, ?)""",
-            (post_type, execution_key, content, now,
-             scheduled_delete_at, drive_file_id),
+            (
+                post_type,
+                execution_key,
+                content,
+                now,
+                scheduled_delete_at,
+                drive_file_id,
+            ),
         )
         await self._db.commit()
         assert cursor.lastrowid is not None
@@ -329,9 +335,7 @@ class Database:
         """全フォロワーを取得する。"""
         return await self.fetchall("SELECT * FROM followers")
 
-    async def update_following_status(
-        self, user_id: str, i_am_following: bool
-    ) -> None:
+    async def update_following_status(self, user_id: str, i_am_following: bool) -> None:
         """フォロー状態を更新する。"""
         assert self._db is not None
         await self._db.execute(
@@ -374,9 +378,7 @@ class Database:
 
     async def get_word_stock(self) -> list[str]:
         """ストック済みの全ワードを取得する。"""
-        rows = await self.fetchall(
-            "SELECT word FROM wordcloud_word_stock"
-        )
+        rows = await self.fetchall("SELECT word FROM wordcloud_word_stock")
         return [row["word"] for row in rows]
 
     async def clear_word_stock(self) -> None:
@@ -385,9 +387,7 @@ class Database:
 
     async def get_stock_count(self) -> int:
         """ストックされた単語数を取得する。"""
-        row = await self.fetchone(
-            "SELECT COUNT(*) as cnt FROM wordcloud_word_stock"
-        )
+        row = await self.fetchone("SELECT COUNT(*) as cnt FROM wordcloud_word_stock")
         return row["cnt"] if row else 0
 
     async def trim_word_stock(self, max_size: int) -> None:
@@ -408,7 +408,8 @@ class Database:
             await self._db.commit()
             logger.debug(
                 "ワードクラウドストックを %d 件削除しました（残り: %d 件）",
-                delete_count, max_size,
+                delete_count,
+                max_size,
             )
 
     # ========== rate_limits 関連 ==========
@@ -446,9 +447,7 @@ class Database:
         )
 
         # リアクション済み記録
-        await self._db.execute(
-            "DELETE FROM reactions WHERE reacted_at < ?", (cutoff,)
-        )
+        await self._db.execute("DELETE FROM reactions WHERE reacted_at < ?", (cutoff,))
 
         # 削除済み投稿の履歴
         await self._db.execute(
@@ -461,4 +460,6 @@ class Database:
         )
 
         await self._db.commit()
-        logger.info("DBクリーンアップを実行しました（%d日以前のデータを削除）", cleanup_days)
+        logger.info(
+            "DBクリーンアップを実行しました（%d日以前のデータを削除）", cleanup_days
+        )

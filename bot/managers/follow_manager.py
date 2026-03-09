@@ -32,7 +32,8 @@ class FollowManager:
         """新規フォロー通知を処理する。"""
         logger.info(
             "新規フォロワーを検出しました（user_id=%s, username=%s）",
-            event.user_id, event.username,
+            event.user_id,
+            event.username,
         )
 
         # フォロワーテーブルに追加
@@ -84,7 +85,8 @@ class FollowManager:
                         )
                         logger.info(
                             "キーワードフォローバックを実行しました（user_id=%s, keyword=%s）",
-                            event.user_id, keyword,
+                            event.user_id,
+                            keyword,
                         )
                     except Exception as e:
                         logger.error(
@@ -136,7 +138,9 @@ class FollowManager:
                     if count >= grace:
                         logger.info(
                             "フォロワーから外れたユーザーを検出しました（user_id=%s, missing_count=%d/%d）",
-                            user_id, count, grace,
+                            user_id,
+                            count,
+                            grace,
                         )
                         await self._db.delete_follower(user_id)
 
@@ -159,7 +163,8 @@ class FollowManager:
 
             logger.info(
                 "フォロワー同期を完了しました（フォロワー: %d, フォロー: %d）",
-                len(follower_ids), len(following_ids),
+                len(follower_ids),
+                len(following_ids),
             )
 
         except Exception as e:

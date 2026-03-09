@@ -28,7 +28,9 @@ class RateLimiter:
         if count >= self._max_per_user_per_hour:
             logger.info(
                 "レート制限に達しています（user_id=%s, count=%d/%d）",
-                user_id, count, self._max_per_user_per_hour,
+                user_id,
+                count,
+                self._max_per_user_per_hour,
             )
             return True
         return False

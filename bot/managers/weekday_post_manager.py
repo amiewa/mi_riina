@@ -46,7 +46,9 @@ class WeekdayPostManager:
 
         # 夜間モード判定
         night = self._config.posting.night_mode
-        if is_night_mode(night.start_hour, night.end_hour, night.enabled, self._config.bot.timezone):
+        if is_night_mode(
+            night.start_hour, night.end_hour, night.enabled, self._config.bot.timezone
+        ):
             return
 
         now = datetime.now(JST)
@@ -64,7 +66,9 @@ class WeekdayPostManager:
         entry = day_data[time_key]
 
         # 確率判定
-        probability = entry.get("probability", self._config.posting.weekday_posts.probability)
+        probability = entry.get(
+            "probability", self._config.posting.weekday_posts.probability
+        )
         if random.random() > probability:
             logger.debug("確率判定により曜日別投稿をスキップします")
             return
@@ -102,7 +106,9 @@ class WeekdayPostManager:
             await self._db.update_post_note_id(post_id, note_id)
             logger.info(
                 "曜日別投稿を実行しました（%s %s, note_id=%s）",
-                weekday, time_key, note_id,
+                weekday,
+                time_key,
+                note_id,
             )
         except Exception as e:
             logger.error("曜日別投稿に失敗しました: %s", str(e))

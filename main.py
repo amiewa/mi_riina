@@ -127,9 +127,7 @@ async def main() -> None:
         await ng_word_manager.initialize()
 
         # 7. Tokenizer 初期化
-        tokenizer = SudachiTokenizer(
-            dict_type=config.bot.tokenizer.sudachi_dict
-        )
+        tokenizer = SudachiTokenizer(dict_type=config.bot.tokenizer.sudachi_dict)
 
         # 8. AIClient 初期化
         if config.ai.provider == "gemini":
@@ -164,7 +162,9 @@ async def main() -> None:
         misskey_url = os.getenv("MISSKEY_INSTANCE_URL", "")
         misskey_token = os.getenv("MISSKEY_API_TOKEN", "")
         if not misskey_url or not misskey_token:
-            logger.error("MISSKEY_INSTANCE_URL / MISSKEY_API_TOKEN が設定されていません")
+            logger.error(
+                "MISSKEY_INSTANCE_URL / MISSKEY_API_TOKEN が設定されていません"
+            )
             sys.exit(1)
 
         misskey = MisskeyClient(misskey_url, misskey_token)
@@ -311,6 +311,7 @@ async def main() -> None:
         event_key = scheduled_post_manager.get_today_event_key()
         if event_key and config.posting.event.enabled:
             import random
+
             now = datetime.now(JST)
             # 7〜22時のランダムな時刻
             if now.hour < 22:
@@ -319,13 +320,17 @@ async def main() -> None:
                 scheduler.add_job(
                     scheduled_post_manager.execute_event_post,
                     "date",
-                    run_date=now.replace(hour=event_hour, minute=event_minute, second=0),
+                    run_date=now.replace(
+                        hour=event_hour, minute=event_minute, second=0
+                    ),
                     args=[event_key],
                     misfire_grace_time=60,
                 )
                 logger.info(
                     "イベント投稿をスケジュールしました: %s (%02d:%02d)",
-                    event_key, event_hour, event_minute,
+                    event_key,
+                    event_hour,
+                    event_minute,
                 )
 
         # メンテナンスジョブ
@@ -426,12 +431,14 @@ async def _execute_auto_delete(db: Database, misskey: MisskeyClient) -> None:
             await db.mark_post_deleted(post["id"])
             logger.info(
                 "投稿を自動削除しました（note_id=%s, post_type=%s）",
-                post["note_id"], post["post_type"],
+                post["note_id"],
+                post["post_type"],
             )
         except Exception as e:
             logger.error(
                 "投稿の自動削除に失敗しました（note_id=%s）: %s",
-                post["note_id"], str(e),
+                post["note_id"],
+                str(e),
             )
 
 

@@ -35,8 +35,8 @@ SOURCE_MAP = {
 
 # フォントダウンロード URL（M PLUS Rounded 1c Regular 400）
 FONT_URL = (
-    "https://fonts.gstatic.com/s/mplusrounded1c/v15/"
-    "VdGBAYIAV6gnpUpoWwNkYvrugw9RuM3ixLsg6CAvqtU3.ttf"
+    "https://raw.githubusercontent.com/google/fonts/main/ofl/"
+    "roundedmplus1c/RoundedMplus1c-Regular.ttf"
 )
 FONT_FILENAME = "MPLUSRounded1c-Regular.ttf"
 DEFAULT_FONT_DIR = "data/fonts"
@@ -140,9 +140,7 @@ class WordcloudManager:
 
         # NGワードフィルタリング
         keywords = [
-            kw
-            for kw in keywords
-            if not self._ng_word_manager.contains_ng_word(kw)
+            kw for kw in keywords if not self._ng_word_manager.contains_ng_word(kw)
         ]
 
         if not keywords:
@@ -226,9 +224,7 @@ class WordcloudManager:
             for attempt in range(3):
                 try:
                     # ドライブにアップロード
-                    drive_file_id = await self._misskey.upload_file(
-                        str(image_path)
-                    )
+                    drive_file_id = await self._misskey.upload_file(str(image_path))
 
                     # ノート投稿
                     note_id = await self._misskey.create_note(
@@ -258,7 +254,13 @@ class WordcloudManager:
                 await self._db.execute(
                     "UPDATE posts SET content = ?, note_id = ?, drive_file_id = ?, "
                     "scheduled_delete_at = ? WHERE id = ?",
-                    (content_summary, note_id, drive_file_id, scheduled_delete_at, post_id),
+                    (
+                        content_summary,
+                        note_id,
+                        drive_file_id,
+                        scheduled_delete_at,
+                        post_id,
+                    ),
                 )
                 # ストッククリア
                 await self._db.clear_word_stock()
@@ -284,9 +286,7 @@ class WordcloudManager:
                 )
 
         except Exception as e:
-            logger.error(
-                "ワードクラウドの生成・投稿でエラーが発生しました: %s", str(e)
-            )
+            logger.error("ワードクラウドの生成・投稿でエラーが発生しました: %s", str(e))
             try:
                 await self._db.delete_post_by_id(post_id)
             except Exception:
@@ -366,10 +366,13 @@ class WordcloudManager:
                         return str(font_path)
                     else:
                         logger.warning(
-                            "フォントのダウンロードに失敗しました（status=%d）", resp.status
+                            "フォントのダウンロードに失敗しました（status=%d）",
+                            resp.status,
                         )
             else:
-                logger.warning("HTTP セッションが未設定のため、フォントをダウンロードできません")
+                logger.warning(
+                    "HTTP セッションが未設定のため、フォントをダウンロードできません"
+                )
 
         except Exception as e:
             logger.warning("フォントのダウンロードに失敗しました: %s", str(e))

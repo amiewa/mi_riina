@@ -37,7 +37,8 @@ class OllamaClient(AIClientBase):
 
         logger.info(
             "Ollama クライアントを初期化しました（モデル: %s, URL: %s）",
-            model, self._base_url,
+            model,
+            self._base_url,
         )
 
     async def generate(
@@ -78,11 +79,10 @@ class OllamaClient(AIClientBase):
                         error_text = await resp.text()
                         logger.error(
                             "Ollama API エラー: status=%d, body=%s",
-                            resp.status, error_text[:200],
+                            resp.status,
+                            error_text[:200],
                         )
-                        raise RuntimeError(
-                            f"Ollama API エラー: {resp.status}"
-                        )
+                        raise RuntimeError(f"Ollama API エラー: {resp.status}")
 
                     data = await resp.json()
                     response_text = data.get("response", "")
@@ -98,9 +98,7 @@ class OllamaClient(AIClientBase):
                     return response_text
 
         except asyncio.TimeoutError:
-            logger.error(
-                "Ollama API がタイムアウトしました（%d秒）", self._timeout
-            )
+            logger.error("Ollama API がタイムアウトしました（%d秒）", self._timeout)
             raise
         except Exception as e:
             logger.error("Ollama API エラー: %s", str(e))

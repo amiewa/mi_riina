@@ -213,7 +213,9 @@ class TestReplyManagerBotSelfExclusion:
         )
 
         # bot 自身からのメンション
-        event = _make_mention_event(user_id=BOT_USER_ID, text="@riina 自分へのメンション")
+        event = _make_mention_event(
+            user_id=BOT_USER_ID, text="@riina 自分へのメンション"
+        )
 
         await manager.on_mention(event)
 

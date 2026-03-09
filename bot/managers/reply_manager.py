@@ -78,7 +78,9 @@ class ReplyManager:
 
         # 夜間モード判定
         night = self._config.posting.night_mode
-        if is_night_mode(night.start_hour, night.end_hour, night.enabled, self._config.bot.timezone):
+        if is_night_mode(
+            night.start_hour, night.end_hour, night.enabled, self._config.bot.timezone
+        ):
             logger.debug("夜間モード中のためリプライをスキップします")
             return
 
@@ -147,7 +149,8 @@ class ReplyManager:
             await self._rate_limiter.record(event.user_id)
             logger.info(
                 "リプライを送信しました（note_id=%s, user_id=%s）",
-                note_id, event.user_id,
+                note_id,
+                event.user_id,
             )
         except Exception as e:
             logger.error("リプライの投稿に失敗しました: %s", str(e))
@@ -170,7 +173,8 @@ class ReplyManager:
             )
             logger.info(
                 "フォールバック台詞を送信しました（category=%s, note_id=%s）",
-                category, event.note_id,
+                category,
+                event.note_id,
             )
         except Exception as e:
             logger.error("フォールバック台詞の送信に失敗しました: %s", str(e))

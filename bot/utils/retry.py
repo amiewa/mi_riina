@@ -70,16 +70,20 @@ async def retry_async(
         except retry_on as e:
             last_exception = e
             if attempt < retries:
-                delay = min(base_delay * (2 ** attempt), max_delay)
+                delay = min(base_delay * (2**attempt), max_delay)
                 logger.warning(
                     "再試行 %d/%d（%s, %.1f秒後にリトライ）",
-                    attempt + 1, retries, str(e), delay,
+                    attempt + 1,
+                    retries,
+                    str(e),
+                    delay,
                 )
                 await asyncio.sleep(delay)
             else:
                 logger.error(
                     "再試行回数の上限に達しました（%d回）: %s",
-                    retries, str(e),
+                    retries,
+                    str(e),
                 )
         except Exception:
             # retry_on に含まれない例外はそのまま発生させる

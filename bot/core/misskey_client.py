@@ -109,7 +109,9 @@ class MisskeyClient:
             if resp.status != 200:
                 error_info = response_body if isinstance(response_body, dict) else {}
                 error_code = error_info.get("error", {}).get("code", "UNKNOWN")
-                error_msg = error_info.get("error", {}).get("message", str(response_body))
+                error_msg = error_info.get("error", {}).get(
+                    "message", str(response_body)
+                )
                 raise RuntimeError(
                     f"Misskey API エラー [{resp.status}] {error_code}: {error_msg}"
                 )
@@ -187,9 +189,7 @@ class MisskeyClient:
                     )
                 result = await resp.json()
                 file_id = result["id"]
-                logger.info(
-                    "ファイルをアップロードしました（file_id=%s）", file_id
-                )
+                logger.info("ファイルをアップロードしました（file_id=%s）", file_id)
                 return file_id
 
     async def delete_file(self, file_id: str) -> None:
@@ -208,9 +208,7 @@ class MisskeyClient:
         result = await self._request("/api/i")
         return result
 
-    async def get_timeline(
-        self, source: str, limit: int = 20
-    ) -> list[dict]:
+    async def get_timeline(self, source: str, limit: int = 20) -> list[dict]:
         """指定ソースの TL からノートを取得する。ページネーション対応。"""
         # ソースと API エンドポイントの対応
         endpoints = {
