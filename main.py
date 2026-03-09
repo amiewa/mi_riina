@@ -208,7 +208,7 @@ async def main() -> None:
         scheduled_post_manager = ScheduledPostManager(config, db, misskey, serif_loader)
         weekday_post_manager = WeekdayPostManager(config, db, misskey, serif_loader)
         timeline_post_manager = TimelinePostManager(
-            config, db, misskey, tokenizer, ng_word_manager
+            config, db, misskey, tokenizer, ng_word_manager, ai_client
         )
         reply_manager = ReplyManager(
             config, db, misskey, ai_client, ng_word_manager, rate_limiter, serif_loader
