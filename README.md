@@ -30,16 +30,16 @@
    docker compose up -d
    ```
 
-# 関連プロジェクト
+### 関連プロジェクト
 - [みあbot](https://github.com/amiewa/mi_mia)
 りいなbotと同等の機能をGASで実現する取り組みです。
 
-# 参考にしたプロジェクト
+## 参考にしたプロジェクト
 - [藍ちゃん](https://github.com/syuilo/ai)
 - [アストロラーベちゃん](https://github.com/amanami-takumi/astrolabe_for_misskey_v2)
 
-# 使用フォント
+## 使用フォント
 - [Rounded M+](https://github.com/google/fonts) [SIL OPEN FONT LICENSE Version 1.1](https://openfontlicense.org/open-font-license-official-text)
 
-# ライセンス
+## ライセンス
 [MIT License](LICENSE)
