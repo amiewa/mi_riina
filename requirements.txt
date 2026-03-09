@@ -25,7 +25,7 @@ pydantic-settings>=2.0,<3.0
 
 # 形態素解析
 sudachipy>=0.6,<1.0
-sudachidict-core
+sudachidict-full
 
 # テスト（開発時のみ）
 pytest>=8.0,<9.0

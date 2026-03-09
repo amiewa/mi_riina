@@ -5,7 +5,7 @@ bot:
   # 形態素解析設定
   tokenizer:
     engine: "sudachi"          # sudachi（将来: mecab 等への差し替え想定）
-    sudachi_dict: "core"       # small / core / full
+    sudachi_dict: "full"       # small / core / full
 
 # 生成 AI 設定
 ai:
