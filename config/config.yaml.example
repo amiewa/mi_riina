@@ -9,9 +9,9 @@ bot:
 
 # 生成 AI 設定
 ai:
-  provider: "gemini"           # gemini / ollama
+  provider: "gemini"           # gemini / ollama / openrouter
   input_max_chars: 800         # AI入力の最大文字数（超過分は切り捨て）
-  timeout_seconds: 30          # AI API呼び出しのタイムアウト（Gemini/Ollama共通）
+  timeout_seconds: 30          # AI API呼び出しのタイムアウト（全プロバイダ共通）
 
   gemini:
     model: "gemini-2.5-flash"
@@ -23,6 +23,12 @@ ai:
     model: "llama3"
     temperature: 0.8
     num_predict: 300            # max_tokens 相当
+
+  openrouter:
+    # api_key は .env の OPENROUTER_API_KEY を参照する
+    model: "google/gemma-3-27b-it"
+    max_tokens: 1024
+    temperature: 1.0
 
 # 投稿設定
 posting:
@@ -72,11 +78,15 @@ posting:
 
   timeline_post:
     enabled: true
+    mode: "template"            # template / ai
     source: "home"              # home / local / social / global
     interval_minutes: 120
     max_notes_fetch: 20
     min_keyword_length: 2
     probability: 0.8
+    template: "{keyword}… りいなも気になるじゃん"  # template モード用（{keyword} がワードに置換される）
+    ai_max_chars: 100           # ai モード時の生成文字数上限（プロンプトに渡す値）
+    ai_keyword_count: 3         # ai モード時にAIに渡すキーワード数
 
   horoscope:
     enabled: false
@@ -89,6 +99,7 @@ posting:
     timeline_source: "home"     # home / local / social / global（ストック収集に使うチャンネル）
     max_stock_size: 2000        # ストックする単語の上限数（超えたら古いものから削除）
     min_stock_words: 30         # 生成に必要な最低ワード数。下回る場合はスキップ
+    min_keyword_length: 2       # ストックする単語の最小文字数（デフォルト: 2）
     max_note_length: 500        # 解析対象ノートの最大文字数（超過ノートはスキップ）
     max_keywords_per_note: 10   # 1ノートから保存する単語数の上限
     analysis_concurrency: 4     # 形態素解析の同時実行数上限

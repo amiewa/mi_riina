@@ -19,7 +19,7 @@ class TestConfigValidation:
 
     def test_load_valid_config(self) -> None:
         """正常な設定ファイルを読み込める"""
-        config = load_config("config/config.yaml")
+        config = load_config("config/config.yaml.example") # Exampleファイルでテスト
         assert config.bot.timezone == "Asia/Tokyo"
         assert config.ai.provider == "gemini"
 
@@ -58,6 +58,28 @@ class TestConfigValidation:
         """ワードクラウドの interval_hours が 4 であれば OK"""
         config = WordcloudConfig(interval_hours=4)
         assert config.interval_hours == 4
+
+    def test_wordcloud_min_keyword_length(self) -> None:
+        """ワードクラウドの min_keyword_length 制約"""
+        config = WordcloudConfig(min_keyword_length=1)
+        assert config.min_keyword_length == 1
+        with pytest.raises(ValidationError):
+            WordcloudConfig(min_keyword_length=0)
+
+    def test_timeline_post_template_validation(self) -> None:
+        """timeline_post の template 検証"""
+        from bot.core.config import TimelinePostConfig
+        config = TimelinePostConfig(template="{keyword}です")
+        assert config.template == "{keyword}です"
+        with pytest.raises(ValidationError):
+            TimelinePostConfig(template="キーワードなしの文字列")
+
+    def test_openrouter_config(self) -> None:
+        """OpenRouterConfig が正しく設定できる"""
+        from bot.core.config import OpenRouterConfig
+        config = OpenRouterConfig(model="hoge", max_tokens=100)
+        assert config.model == "hoge"
+        assert config.max_tokens == 100
 
     def test_poll_choice_count_range(self) -> None:
         """アンケート choice_count は 2〜10"""

@@ -21,6 +21,7 @@ from bot.core.database import Database
 from bot.core.gemini_client import GeminiClient
 from bot.core.misskey_client import MisskeyClient
 from bot.core.ollama_client import OllamaClient
+from bot.core.openrouter_client import OpenRouterClient
 from bot.managers.follow_manager import FollowManager
 from bot.managers.horoscope_manager import HoroscopeManager
 from bot.managers.poll_manager import PollManager
@@ -143,7 +144,7 @@ async def main() -> None:
                 timeout_seconds=config.ai.timeout_seconds,
                 input_max_chars=config.ai.input_max_chars,
             )
-        else:
+        elif config.ai.provider == "ollama":
             ollama_url = os.getenv("OLLAMA_BASE_URL", "")
             if not ollama_url:
                 logger.error("OLLAMA_BASE_URL が設定されていません")
@@ -156,6 +157,20 @@ async def main() -> None:
                 timeout_seconds=config.ai.timeout_seconds,
                 input_max_chars=config.ai.input_max_chars,
                 session=session,
+            )
+        else:  # openrouter
+            openrouter_key = os.getenv("OPENROUTER_API_KEY", "")
+            if not openrouter_key:
+                logger.error("OPENROUTER_API_KEY が設定されていません")
+                sys.exit(1)
+            ai_client = OpenRouterClient(
+                api_key=openrouter_key,
+                session=session,
+                model=config.ai.openrouter.model,
+                max_tokens=config.ai.openrouter.max_tokens,
+                temperature=config.ai.openrouter.temperature,
+                timeout_seconds=config.ai.timeout_seconds,
+                input_max_chars=config.ai.input_max_chars,
             )
 
         # 9. MisskeyClient 初期化

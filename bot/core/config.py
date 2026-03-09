@@ -48,14 +48,23 @@ class OllamaConfig(BaseModel):
     num_predict: int = Field(default=300, ge=1)
 
 
+class OpenRouterConfig(BaseModel):
+    """OpenRouter 設定"""
+
+    model: str = "google/gemma-3-27b-it"
+    max_tokens: int = Field(default=1024, ge=1)
+    temperature: float = Field(default=1.0, ge=0.0, le=2.0)
+
+
 class AIConfig(BaseModel):
     """生成 AI 設定"""
 
-    provider: Literal["gemini", "ollama"] = "gemini"
+    provider: Literal["gemini", "ollama", "openrouter"] = "gemini"
     input_max_chars: int = Field(default=800, ge=1)
     timeout_seconds: int = Field(default=30, ge=1)
     gemini: GeminiConfig = GeminiConfig()
     ollama: OllamaConfig = OllamaConfig()
+    openrouter: OpenRouterConfig = OpenRouterConfig()
 
 
 class NightModeConfig(BaseModel):
@@ -120,11 +129,22 @@ class TimelinePostConfig(BaseModel):
     """タイムライン連動投稿設定"""
 
     enabled: bool = True
+    mode: Literal["template", "ai"] = "template"
     source: Literal["home", "local", "social", "global"] = "home"
     interval_minutes: int = Field(default=120, ge=1)
     max_notes_fetch: int = Field(default=20, ge=1)
     min_keyword_length: int = Field(default=2, ge=1)
     probability: float = Field(default=0.8, ge=0.0, le=1.0)
+    template: str = "{keyword}… りいなも気になるじゃん"
+    ai_max_chars: int = Field(default=100, ge=1)
+    ai_keyword_count: int = Field(default=3, ge=1)
+
+    @field_validator("template")
+    @classmethod
+    def validate_template(cls, v: str) -> str:
+        if "{keyword}" not in v:
+            raise ValueError("template には '{keyword}' を含める必要があります")
+        return v
 
 
 class HoroscopeConfig(BaseModel):
@@ -143,6 +163,7 @@ class WordcloudConfig(BaseModel):
     timeline_source: Literal["home", "local", "social", "global"] = "home"
     max_stock_size: int = Field(default=2000, ge=1)
     min_stock_words: int = Field(default=30, ge=1)
+    min_keyword_length: int = Field(default=2, ge=1)
     max_note_length: int = Field(default=500, ge=1)
     max_keywords_per_note: int = Field(default=10, ge=1)
     analysis_concurrency: int = Field(default=4, ge=1)

@@ -23,6 +23,7 @@ from bot.utils.ng_word_manager import NGWordManager
 from bot.utils.night_mode import is_night_mode
 from bot.utils.serif_loader import SerifLoader
 from bot.utils.text_cleaner import clean_note_text
+from bot.utils.text_utils import weighted_keyword_choice
 from bot.utils.tokenizer import TokenizerBase
 
 logger = logging.getLogger(__name__)
@@ -221,7 +222,8 @@ class PollManager:
             logger.warning("選択肢が不足しています")
             return None
 
-        selected = random.sample(unique_keywords, choice_count)
+        # 重み付きランダムで選択する
+        selected = weighted_keyword_choice(unique_keywords, choice_count)
 
         # 接頭辞を付与
         prefixes = poll_serif.get("prefixes", [])

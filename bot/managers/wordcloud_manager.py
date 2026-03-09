@@ -138,17 +138,18 @@ class WordcloudManager:
         # max_keywords_per_note で制限
         keywords = keywords[: self._wc_config.max_keywords_per_note]
 
-        # NGワードフィルタリング
-        keywords = [
-            kw for kw in keywords if not self._ng_word_manager.contains_ng_word(kw)
-        ]
+        # NGワードフィルタリングと長さ制限（min_keyword_length以上の単語を抽出）
+        valid_keywords = []
+        for kw in keywords:
+            if len(kw) >= self._wc_config.min_keyword_length and not self._ng_word_manager.contains_ng_word(kw):
+                valid_keywords.append(kw)
 
-        if not keywords:
+        if not valid_keywords:
             return
 
         # DB に保存
         try:
-            await self._db.stock_words(keywords)
+            await self._db.stock_words(valid_keywords)
         except Exception as e:
             logger.error("ワードストックの保存に失敗しました: %s", str(e))
             return
