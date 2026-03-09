@@ -19,6 +19,7 @@ package-lock.json
 
 # Local Environment
 .env
+config/config.yaml
 
 # Data (DB・バックアップ・フォント等)
 data/
