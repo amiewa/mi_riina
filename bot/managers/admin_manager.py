@@ -117,7 +117,8 @@ class AdminManager:
 
     async def _reply_error(self, reply_id: str) -> None:
         """不正なコマンド時のエラー応答"""
-        serifs = self._serif_loader.get_serifs("command_error")
+        fallback_data = self._serif_loader.fallback or {}
+        serifs = fallback_data.get("command_error", [])
         import random
 
         text = random.choice(serifs) if serifs else "コマンドエラー"
@@ -134,16 +135,15 @@ class AdminManager:
             hour=0, minute=0, second=0, microsecond=0
         )
 
-        cursor = await self._db._conn.execute(
+        row = await self._db.fetchone(
             """
-            SELECT COUNT(*) FROM posts
+            SELECT COUNT(*) as count FROM posts
             WHERE post_type IN ('reply', 'horoscope', 'timeline', 'poll')
               AND posted_at >= ?
             """,
             (today_start.isoformat(),),
         )
-        row = await cursor.fetchone()
-        today_posts_count = row[0] if row else 0
+        today_posts_count = row["count"] if row else 0
 
         stock_count = await self._db.get_stock_count()
 
@@ -151,15 +151,15 @@ class AdminManager:
             f"りいなbot v{__version__}",
             "─────────────",
             f"ai: {c.ai.provider} / 本日の投稿数: {today_posts_count}件",
-            f"posting: {c.posting.default_visibility} / cooldown: {c.posting.cooldown_minutes}分",
-            f"night_mode: {c.posting.night_mode.enabled} / {c.posting.night_mode.start_hour}:00〜{c.posting.night_mode.end_hour}:00",
-            f"random_post: {c.posting.random_post.enabled} / {c.posting.random_post.interval_minutes}分 / prob: {c.posting.random_post.probability}",
-            f"scheduled: {c.posting.scheduled_posts.enabled} / prob: {c.posting.scheduled_posts.probability}",
-            f"weekday: {c.posting.weekday_posts.enabled} / prob: {c.posting.weekday_posts.probability}",
-            f"timeline: {c.posting.timeline_post.enabled} / {c.posting.timeline_post.source} / {c.posting.timeline_post.interval_minutes}分 / max: {c.posting.timeline_post.max_notes_fetch} / min_kw: {c.posting.timeline_post.min_keyword_length} / prob: {c.posting.timeline_post.probability}",
-            f"horoscope: {c.posting.horoscope.enabled} / {c.posting.horoscope.mode} / {c.posting.horoscope.post_hour}:00",
-            f"wordcloud: {c.posting.wordcloud.enabled} / {c.posting.wordcloud.interval_hours}h / {c.posting.wordcloud.timeline_source} / stock: {stock_count}語",
-            f"poll: {c.posting.poll.enabled} / {c.posting.poll.mode} / {c.posting.poll.interval_hours}h / expire: {c.posting.poll.expire_hours}h / {c.posting.poll.timeline_source} / max: {c.posting.poll.max_notes_fetch} / prob: {c.posting.poll.probability}",
+            f"posting: {c.posting.default_visibility} / cooldown: {c.posting.cooldown_minutes}分",  # noqa: E501
+            f"night_mode: {c.posting.night_mode.enabled} / {c.posting.night_mode.start_hour}:00〜{c.posting.night_mode.end_hour}:00",  # noqa: E501
+            f"random_post: {c.posting.random_post.enabled} / {c.posting.random_post.interval_minutes}分 / prob: {c.posting.random_post.probability}",  # noqa: E501
+            f"scheduled: {c.posting.scheduled_posts.enabled} / prob: {c.posting.scheduled_posts.probability}",  # noqa: E501
+            f"weekday: {c.posting.weekday_posts.enabled} / prob: {c.posting.weekday_posts.probability}",  # noqa: E501
+            f"timeline: {c.posting.timeline_post.enabled} / {c.posting.timeline_post.source} / {c.posting.timeline_post.interval_minutes}分 / max: {c.posting.timeline_post.max_notes_fetch} / min_kw: {c.posting.timeline_post.min_keyword_length} / prob: {c.posting.timeline_post.probability}",  # noqa: E501
+            f"horoscope: {c.posting.horoscope.enabled} / {c.posting.horoscope.mode} / {c.posting.horoscope.post_hour}:00",  # noqa: E501
+            f"wordcloud: {c.posting.wordcloud.enabled} / {c.posting.wordcloud.interval_hours}h / {c.posting.wordcloud.timeline_source} / stock: {stock_count}語",  # noqa: E501
+            f"poll: {c.posting.poll.enabled} / {c.posting.poll.mode} / {c.posting.poll.interval_hours}h / expire: {c.posting.poll.expire_hours}h / {c.posting.poll.timeline_source} / max: {c.posting.poll.max_notes_fetch} / prob: {c.posting.poll.probability}",  # noqa: E501
             f"event: {c.posting.event.enabled}",
         ]
 
