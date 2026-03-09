@@ -70,7 +70,12 @@ async def test_timeline_post_ai_mode(mock_config, mock_db, mock_misskey, mock_to
     )
 
     with patch("bot.managers.timeline_post_manager.open", mock_open(read_data="System Prompt")):
-        await manager.execute_timeline_post()
+        with patch("bot.managers.timeline_post_manager.logger") as mock_logger:
+            await manager.execute_timeline_post()
+            
+            # 成功時に mode=ai で出力されているか
+            args, kwargs = mock_logger.info.call_args
+            assert args[2] == "ai"
 
     mock_ai_client.generate.assert_called_once()
     assert mock_misskey.create_note.called
@@ -90,8 +95,45 @@ async def test_timeline_post_template_mode_if_ai_client_missing(mock_config, moc
     )
     mock_config.posting.timeline_post.template = "Template: {keyword}"
 
-    await manager.execute_timeline_post()
+    with patch("bot.managers.timeline_post_manager.logger") as mock_logger:
+        await manager.execute_timeline_post()
+
+        # フォールバックの警告が出ているか
+        mock_logger.warning.assert_called()
+        
+        # 最終的な報国が fallback モードになっているか
+        args, kwargs = mock_logger.info.call_args
+        assert args[2] == "template (fallback: ai_client is None)"
 
     assert mock_misskey.create_note.called
     args, kwargs = mock_misskey.create_note.call_args
     assert "Template: " in kwargs["text"]
+
+@pytest.mark.asyncio
+async def test_timeline_post_fallback_on_empty_ai_response(mock_config, mock_db, mock_misskey, mock_tokenizer, mock_ng_word_manager, mock_ai_client):
+    # AIが空文字を返した場合
+    manager = TimelinePostManager(
+        config=mock_config,
+        db=mock_db,
+        misskey=mock_misskey,
+        tokenizer=mock_tokenizer,
+        ng_word_manager=mock_ng_word_manager,
+        ai_client=mock_ai_client
+    )
+    mock_ai_client.generate.return_value = None
+    mock_config.posting.timeline_post.template = "Fallback: {keyword}"
+
+    with patch("bot.managers.timeline_post_manager.open", mock_open(read_data="System Prompt")):
+        with patch("bot.managers.timeline_post_manager.logger") as mock_logger:
+            await manager.execute_timeline_post()
+
+            # フォールバックの警告が出ているか
+            mock_logger.warning.assert_called()
+            
+            # 最終的な報告が fallback モードになっているか
+            args, kwargs = mock_logger.info.call_args
+            assert args[2] == "template (fallback: generation failure)"
+
+    assert mock_misskey.create_note.called
+    args, kwargs = mock_misskey.create_note.call_args
+    assert "Fallback: " in kwargs["text"]

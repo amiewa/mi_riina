@@ -137,15 +137,27 @@ class TimelinePostManager:
         unique_keywords = list(set(all_keywords))
 
         # モードに応じた投稿文生成
-        if tl_config.mode == "ai" and self._ai_client:
-            text = await self._generate_ai_post(unique_keywords)
-            if not text:
+        actual_mode = tl_config.mode
+        if tl_config.mode == "ai":
+            if self._ai_client:
+                text = await self._generate_ai_post(unique_keywords)
+                if not text:
+                    logger.warning(
+                        "AIでの文章生成に失敗したため（空またはエラー）、"
+                        "templateモードにフォールバックします"
+                    )
+                    text = self._generate_template_post(unique_keywords)
+                    actual_mode = "template (fallback: generation failure)"
+            else:
                 logger.warning(
-                    "AI生成に失敗したためtemplateモードにフォールバックします"
+                    "AIモードが有効ですが、AIクライアントが提供されていないため、"
+                    "templateモードを使用します（設定を確認してください）"
                 )
                 text = self._generate_template_post(unique_keywords)
+                actual_mode = "template (fallback: ai_client is None)"
         else:
             text = self._generate_template_post(unique_keywords)
+            actual_mode = "template"
 
         if not text:
             logger.error("投稿文を生成できませんでした")
@@ -176,7 +188,7 @@ class TimelinePostManager:
             logger.info(
                 "TL連動投稿を実行しました（note_id=%s, mode=%s）",
                 note_id,
-                tl_config.mode,
+                actual_mode,
             )
         except Exception as e:
             logger.error("TL連動投稿に失敗しました: %s", str(e))
