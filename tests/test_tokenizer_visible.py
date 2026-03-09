@@ -1,5 +1,6 @@
-import pytest
+
 from bot.utils.tokenizer import _VISIBLE_PATTERN
+
 
 def test_visible_pattern():
     # 正常な例（可視文字を含む）
@@ -12,8 +13,8 @@ def test_visible_pattern():
 
     # 不可視文字のみの例
     assert not _VISIBLE_PATTERN.search("　")  # 全角スペース
-    assert not _VISIBLE_PATTERN.search(" ")   # 半角スペース
+    assert not _VISIBLE_PATTERN.search(" ")  # 半角スペース
     assert not _VISIBLE_PATTERN.search("\n")
     assert not _VISIBLE_PATTERN.search("\t")
     assert not _VISIBLE_PATTERN.search("　　\n  ")
-    assert not _VISIBLE_PATTERN.search("🍔") # Emoji 等 (指定外)
+    assert not _VISIBLE_PATTERN.search("🍔")  # Emoji 等 (指定外)

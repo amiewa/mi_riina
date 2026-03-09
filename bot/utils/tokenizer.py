@@ -79,7 +79,7 @@ class SudachiTokenizer(TokenizerBase):
                         # 可視文字が含まれていない場合はスキップ（全角スペースのみなどを除外）
                         if not _VISIBLE_PATTERN.search(surface):
                             continue
-                            
+
                         keywords.append(surface)
                 return keywords
             except Exception as e:

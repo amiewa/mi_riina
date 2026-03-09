@@ -132,6 +132,12 @@ class HoroscopeManager:
         if not horoscope_config.enabled:
             return
 
+        await self._do_horoscope_post()
+
+    async def _do_horoscope_post(self) -> None:
+        """実際の星座占い投稿処理（チェックなし）。AdminManagerからも呼ばれる。"""
+        horoscope_config = self._config.posting.horoscope
+
         now = datetime.now(JST)
         today_str = now.strftime("%Y-%m-%d")
         execution_key = f"horoscope:{today_str}"
@@ -273,8 +279,9 @@ class HoroscopeManager:
                 # バリデーション: 12星座が全て含まれているか
                 if self._validate_ai_horoscope(text):
                     # NGワードチェック
-                    if self._ng_word_manager and self._ng_word_manager.contains_ng_word(
-                        text
+                    if (
+                        self._ng_word_manager
+                        and self._ng_word_manager.contains_ng_word(text)
                     ):
                         logger.warning(
                             "AI占いにNGワードが含まれています。no_ai にフォールバックします"

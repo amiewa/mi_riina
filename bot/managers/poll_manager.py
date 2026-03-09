@@ -99,6 +99,12 @@ class PollManager:
                 if datetime.now(JST) - last_dt < timedelta(minutes=cooldown):
                     return
 
+        await self._do_poll_post()
+
+    async def _do_poll_post(self) -> None:
+        """実際のアンケート投稿処理（チェックなし）。AdminManagerからも呼ばれる。"""
+        poll_config = self._config.posting.poll
+
         # execution_key
         now = datetime.now(JST)
         execution_key = f"poll:{now.strftime('%Y-%m-%dT%H:00')}"

@@ -60,7 +60,7 @@ class OpenRouterClient(AIClientBase):
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
             "HTTP-Referer": "https://github.com/amiewa/mi_riina",
-            "X-Title": "mi_riina"
+            "X-Title": "mi_riina",
         }
 
         payload = {
@@ -86,18 +86,28 @@ class OpenRouterClient(AIClientBase):
                     choices = data.get("choices", [])
                     if choices and "message" in choices[0]:
                         content = choices[0]["message"].get("content", "")
-                        logger.debug("OpenRouter 応答を取得しました（%d 文字）", len(content))
+                        logger.debug(
+                            "OpenRouter 応答を取得しました（%d 文字）", len(content)
+                        )
                         return content
                     else:
-                        logger.warning("OpenRouter から空の応答または不正なフォーマットが返されました")
+                        logger.warning(
+                            "OpenRouter から空の応答または不正なフォーマットが返されました"
+                        )
                         raise ValueError("OpenRouter からの応答が不正です")
                 elif response.status == 429:
-                    logger.warning("OpenRouter API のレートリミットに達しました (HTTP 429)")
+                    logger.warning(
+                        "OpenRouter API のレートリミットに達しました (HTTP 429)"
+                    )
                     # aiohttp 経由で発生する HTTP エラーの形式として扱う
                     response.raise_for_status()
                 else:
                     text = await response.text()
-                    logger.error("OpenRouter API エラー (ステータス %d): %s", response.status, text)
+                    logger.error(
+                        "OpenRouter API エラー (ステータス %d): %s",
+                        response.status,
+                        text,
+                    )
                     response.raise_for_status()
 
         except asyncio.TimeoutError:
@@ -109,7 +119,7 @@ class OpenRouterClient(AIClientBase):
 
     async def close(self) -> None:
         """リソースを解放する。
-        
+
         ClientSession は main.py で管理・クローズされるため、ここでは何もしない。
         """
         logger.info("OpenRouter クライアントを終了しました")

@@ -141,7 +141,11 @@ class WordcloudManager:
         # NGワードフィルタリングと長さ制限（min_keyword_length以上の単語を抽出）
         valid_keywords = []
         for kw in keywords:
-            if len(kw) >= self._wc_config.min_keyword_length and not self._ng_word_manager.contains_ng_word(kw):
+            if len(
+                kw
+            ) >= self._wc_config.min_keyword_length and not self._ng_word_manager.contains_ng_word(
+                kw
+            ):
                 valid_keywords.append(kw)
 
         if not valid_keywords:
@@ -172,6 +176,11 @@ class WordcloudManager:
         """ワードクラウドを生成・投稿する。"""
         if not self._wc_config.enabled:
             return
+
+        await self._do_wordcloud_post()
+
+    async def _do_wordcloud_post(self) -> None:
+        """実際のワードクラウド投稿処理（チェックなし）。AdminManagerからも呼ばれる。"""
 
         now = datetime.now(JST)
         # execution_key: 時間枠ベース

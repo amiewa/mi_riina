@@ -19,7 +19,7 @@ class TestConfigValidation:
 
     def test_load_valid_config(self) -> None:
         """正常な設定ファイルを読み込める"""
-        config = load_config("config/config.yaml.example") # Exampleファイルでテスト
+        config = load_config("config/config.yaml.example")  # Exampleファイルでテスト
         assert config.bot.timezone == "Asia/Tokyo"
         assert config.ai.provider == "gemini"
 
@@ -69,6 +69,7 @@ class TestConfigValidation:
     def test_timeline_post_template_validation(self) -> None:
         """timeline_post の template 検証"""
         from bot.core.config import TimelinePostConfig
+
         config = TimelinePostConfig(template="{keyword}です")
         assert config.template == "{keyword}です"
         with pytest.raises(ValidationError):
@@ -77,6 +78,7 @@ class TestConfigValidation:
     def test_openrouter_config(self) -> None:
         """OpenRouterConfig が正しく設定できる"""
         from bot.core.config import OpenRouterConfig
+
         config = OpenRouterConfig(model="hoge", max_tokens=100)
         assert config.model == "hoge"
         assert config.max_tokens == 100

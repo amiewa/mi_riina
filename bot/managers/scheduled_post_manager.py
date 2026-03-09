@@ -59,6 +59,11 @@ class ScheduledPostManager:
             logger.debug("確率判定により定時投稿をスキップします")
             return
 
+        await self._do_scheduled_post(time_key)
+
+    async def _do_scheduled_post(self, time_key: str) -> None:
+        """実際の定時投稿処理（チェックなし）。AdminManagerからも呼ばれる。"""
+
         # execution_key で二重投稿チェック
         today = datetime.now(JST).strftime("%Y-%m-%dT")
         execution_key = f"scheduled:{today}{time_key}"
@@ -116,6 +121,16 @@ class ScheduledPostManager:
         """
         if not self._config.posting.event.enabled:
             return
+
+        await self._do_event_post(date_key)
+
+    async def _do_event_post(self, date_key: str | None = None) -> None:
+        """実際の記念日イベント投稿処理（チェックなし）。AdminManagerからも呼ばれる。"""
+        if date_key is None:
+            date_key = self.get_today_event_key()
+            if not date_key:
+                logger.info("本日のイベントはありません")
+                return
 
         # execution_key で二重投稿チェック
         today = datetime.now(JST).strftime("%Y-%m-%d")

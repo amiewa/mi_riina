@@ -67,6 +67,22 @@ class MisskeyClient:
         """起動時に取得した bot 自身の user_id。"""
         return self._bot_user_id
 
+    async def get_user_by_username(self, username: str) -> dict | None:
+        """ユーザー名からユーザー情報を取得する。見つからない場合は None。"""
+        try:
+            # username に @host が含まれる場合は host パラメータも処理する（必要に応じて適宜修正可能だが暫定対応）
+            if "@" in username:
+                name, host = username.split("@", 1)
+                return await self._request(
+                    "/api/users/show", {"username": name, "host": host}
+                )
+            else:
+                return await self._request("/api/users/show", {"username": username})
+        except RuntimeError as e:
+            if "NOT_FOUND" in str(e) or "404" in str(e) or "400" in str(e):
+                return None
+            raise
+
     @property
     def token(self) -> str:
         """API トークン（WebSocket 接続用）。"""

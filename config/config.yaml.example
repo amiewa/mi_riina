@@ -20,13 +20,14 @@ ai:
 
   ollama:
     # base_url は .env の OLLAMA_BASE_URL を参照する
-    model: "llama3"
+    # auth_token は .env の OLLAMA_API_KEY を参照する（Ollama Cloud 使用時のみ）
+    model: "qwen3.5:cloud"
     temperature: 0.8
     num_predict: 300            # max_tokens 相当
 
   openrouter:
     # api_key は .env の OPENROUTER_API_KEY を参照する
-    model: "google/gemma-3-27b-it"
+    model: "stepfun/step-3.5-flash:free"
     max_tokens: 1024
     temperature: 1.0
 
@@ -166,6 +167,10 @@ reply:
   rate_limit:
     max_per_user_per_hour: 3
   ai_concurrency: 2             # AI呼び出しの同時実行数上限
+
+# bot管理コマンド
+admin:
+  usernames: [admin]                # 管理者のMisskeyユーザー名リスト（例: ["amiewa"]）
 
 # NGワード
 ng_words:

@@ -35,6 +35,9 @@ class OllamaClient(AIClientBase):
         self._input_max_chars = input_max_chars
         self._session = session
 
+        # authorization header config
+        self._api_key = __import__("os").getenv("OLLAMA_API_KEY", "")
+
         logger.info(
             "Ollama クライアントを初期化しました（モデル: %s, URL: %s）",
             model,
@@ -61,8 +64,10 @@ class OllamaClient(AIClientBase):
 
         payload = {
             "model": self._model,
-            "prompt": user_prompt,
-            "system": system_prompt,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
             "stream": False,
             "options": {
                 "temperature": temperature or self._default_temperature,
@@ -70,11 +75,17 @@ class OllamaClient(AIClientBase):
             },
         }
 
-        url = f"{self._base_url}/api/generate"
+        url = f"{self._base_url}/api/chat"
+
+        headers = {}
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
 
         try:
             async with asyncio.timeout(self._timeout):
-                async with self._session.post(url, json=payload) as resp:
+                async with self._session.post(
+                    url, json=payload, headers=headers
+                ) as resp:
                     if resp.status != 200:
                         error_text = await resp.text()
                         logger.error(
@@ -85,7 +96,7 @@ class OllamaClient(AIClientBase):
                         raise RuntimeError(f"Ollama API エラー: {resp.status}")
 
                     data = await resp.json()
-                    response_text = data.get("response", "")
+                    response_text = data.get("message", {}).get("content", "")
 
                     if not response_text:
                         logger.warning("Ollama から空の応答が返されました")

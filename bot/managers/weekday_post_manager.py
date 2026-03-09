@@ -51,27 +51,37 @@ class WeekdayPostManager:
         ):
             return
 
+        try:
+            await self._do_weekday_post(check_probability=True)
+        except ValueError:
+            pass
+        except Exception as e:
+            logger.error("曜日別投稿に失敗しました: %s", str(e))
+
+    async def _do_weekday_post(self, check_probability: bool = False) -> None:
+        """実際の曜日別投稿処理（チェックなし）。AdminManagerからも呼ばれる。"""
         now = datetime.now(JST)
         weekday = WEEKDAY_NAMES[now.weekday()]
         time_key = now.strftime("%H:%M")
 
         serif_data = self._serif_loader.weekday_posts
         if not serif_data or weekday not in serif_data:
-            return
+            raise ValueError("現在の曜日の台詞データがありません")
 
         day_data = serif_data[weekday]
         if time_key not in day_data:
-            return
+            raise ValueError("現在時刻の台詞データがありません")
 
         entry = day_data[time_key]
 
-        # 確率判定
-        probability = entry.get(
-            "probability", self._config.posting.weekday_posts.probability
-        )
-        if random.random() > probability:
-            logger.debug("確率判定により曜日別投稿をスキップします")
-            return
+        # 確率判定（スケジューラからの呼び出し時のみ）
+        if check_probability:
+            probability = entry.get(
+                "probability", self._config.posting.weekday_posts.probability
+            )
+            if random.random() > probability:
+                logger.debug("確率判定により曜日別投稿をスキップします")
+                return
 
         # execution_key
         today = now.strftime("%Y-%m-%d")
@@ -110,9 +120,9 @@ class WeekdayPostManager:
                 time_key,
                 note_id,
             )
-        except Exception as e:
-            logger.error("曜日別投稿に失敗しました: %s", str(e))
+        except Exception:
             await self._db.delete_post_by_id(post_id)
+            raise
 
     def get_weekday_schedule(self) -> list[dict]:
         """曜日別投稿のスケジュール一覧を返す。

@@ -5,6 +5,7 @@
 
 import random
 
+
 def weighted_keyword_choice(keywords: list[str], k: int = 1) -> list[str]:
     """長いワードほど選ばれやすい重み付きランダム選択。
 
@@ -31,7 +32,9 @@ def weighted_keyword_choice(keywords: list[str], k: int = 1) -> list[str]:
     for _ in range(k):
         if not remaining:
             break
-        chosen = random.choices(range(len(remaining)), weights=remaining_weights, k=1)[0]
+        chosen = random.choices(range(len(remaining)), weights=remaining_weights, k=1)[
+            0
+        ]
         selected.append(remaining[chosen][1])
         remaining.pop(chosen)
         remaining_weights.pop(chosen)

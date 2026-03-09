@@ -43,7 +43,7 @@ class GeminiConfig(BaseModel):
 class OllamaConfig(BaseModel):
     """Ollama 設定"""
 
-    model: str = "llama3"
+    model: str = "qwen3.5:cloud"
     temperature: float = Field(default=0.8, ge=0.0, le=2.0)
     num_predict: int = Field(default=300, ge=1)
 
@@ -51,7 +51,7 @@ class OllamaConfig(BaseModel):
 class OpenRouterConfig(BaseModel):
     """OpenRouter 設定"""
 
-    model: str = "google/gemma-3-27b-it"
+    model: str = "stepfun/step-3.5-flash:free"
     max_tokens: int = Field(default=1024, ge=1)
     temperature: float = Field(default=1.0, ge=0.0, le=2.0)
 
@@ -65,6 +65,12 @@ class AIConfig(BaseModel):
     gemini: GeminiConfig = GeminiConfig()
     ollama: OllamaConfig = OllamaConfig()
     openrouter: OpenRouterConfig = OpenRouterConfig()
+
+
+class AdminConfig(BaseModel):
+    """bot管理コマンド設定"""
+
+    usernames: list[str] = []
 
 
 class NightModeConfig(BaseModel):
@@ -325,6 +331,7 @@ class AppConfig(BaseModel):
 
     bot: BotConfig = BotConfig()
     ai: AIConfig = AIConfig()
+    admin: AdminConfig = AdminConfig()
     posting: PostingConfig = PostingConfig()
     reaction: ReactionConfig = ReactionConfig()
     follow: FollowConfig = FollowConfig()

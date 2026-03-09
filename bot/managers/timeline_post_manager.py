@@ -75,6 +75,12 @@ class TimelinePostManager:
                     logger.debug("クールダウン中のためTL連動投稿をスキップします")
                     return
 
+        await self._do_timeline_post()
+
+    async def _do_timeline_post(self) -> None:
+        """実際のTL連動投稿処理（チェックなし）。AdminManagerからも呼ばれる。"""
+        tl_config = self._config.posting.timeline_post
+
         # TLからノート取得
         raw_notes = await self._misskey.get_timeline(
             source=tl_config.source,
@@ -116,9 +122,10 @@ class TimelinePostManager:
             )
 
             for kw in keywords:
-                if (
-                    len(kw) >= tl_config.min_keyword_length
-                    and not self._ng_word.contains_ng_word(kw)
+                if len(
+                    kw
+                ) >= tl_config.min_keyword_length and not self._ng_word.contains_ng_word(
+                    kw
                 ):
                     all_keywords.append(kw)
 
@@ -133,7 +140,9 @@ class TimelinePostManager:
         if tl_config.mode == "ai" and self._ai_client:
             text = await self._generate_ai_post(unique_keywords)
             if not text:
-                logger.warning("AI生成に失敗したためtemplateモードにフォールバックします")
+                logger.warning(
+                    "AI生成に失敗したためtemplateモードにフォールバックします"
+                )
                 text = self._generate_template_post(unique_keywords)
         else:
             text = self._generate_template_post(unique_keywords)
@@ -176,16 +185,14 @@ class TimelinePostManager:
             except Exception:
                 pass
 
-
     def _generate_template_post(self, unique_keywords: list[str]) -> str | None:
         """templateモードで投稿文を生成する"""
         if not unique_keywords:
             return None
-            
+
         selected = weighted_keyword_choice(unique_keywords, 1)[0]
         template = self._config.posting.timeline_post.template
         return template.replace("{keyword}", selected)
-
 
     async def _generate_ai_post(self, unique_keywords: list[str]) -> str | None:
         """aiモードで投稿文を生成する"""
@@ -193,7 +200,9 @@ class TimelinePostManager:
             return None
 
         tl_config = self._config.posting.timeline_post
-        selected_keywords = weighted_keyword_choice(unique_keywords, tl_config.ai_keyword_count)
+        selected_keywords = weighted_keyword_choice(
+            unique_keywords, tl_config.ai_keyword_count
+        )
         keywords_str = "、".join(selected_keywords)
 
         now = datetime.now(JST)

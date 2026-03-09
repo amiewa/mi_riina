@@ -16,12 +16,15 @@ from zoneinfo import ZoneInfo
 import aiohttp
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from bot import __version__
 from bot.core.config import AppConfig, load_config
 from bot.core.database import Database
 from bot.core.gemini_client import GeminiClient
 from bot.core.misskey_client import MisskeyClient
+from bot.core.models import MentionEvent
 from bot.core.ollama_client import OllamaClient
 from bot.core.openrouter_client import OpenRouterClient
+from bot.managers.admin_manager import AdminManager
 from bot.managers.follow_manager import FollowManager
 from bot.managers.horoscope_manager import HoroscopeManager
 from bot.managers.poll_manager import PollManager
@@ -92,7 +95,7 @@ async def main() -> None:
 
     # 2. ログ設定
     setup_logging(config)
-    logger.info("りいなbot v2 を起動中...")
+    logger.info("りいなbot v%s を起動中...", __version__)
 
     # 3. 停止シグナル用イベント
     stop_event = asyncio.Event()
@@ -223,6 +226,28 @@ async def main() -> None:
         )
         await wordcloud_manager.initialize()
 
+        admin_manager = AdminManager(
+            config=config,
+            db=db,
+            misskey=misskey,
+            serif_loader=serif_loader,
+            post_manager=post_manager,
+            scheduled_post_manager=scheduled_post_manager,
+            weekday_post_manager=weekday_post_manager,
+            timeline_post_manager=timeline_post_manager,
+            horoscope_manager=horoscope_manager,
+            wordcloud_manager=wordcloud_manager,
+            poll_manager=poll_manager,
+        )
+        await admin_manager.initialize()
+
+        async def on_mention_dispatch(event: MentionEvent) -> None:
+            """メンションイベントを処理順序付きでディスパッチする。"""
+            if await admin_manager.try_handle(event):
+                return
+            await reply_manager.on_mention(event)
+            await follow_manager.on_mention(event)
+
         # 11. StreamingManager にイベントハンドラ登録
         streaming = StreamingManager(
             instance_url=misskey_url,
@@ -235,8 +260,7 @@ async def main() -> None:
         streaming.on("note", wordcloud_manager.on_note)  # ストック収集
 
         # MentionEvent ハンドラ
-        streaming.on("mention", reply_manager.on_mention)
-        streaming.on("mention", follow_manager.on_mention)
+        streaming.on("mention", on_mention_dispatch)
 
         # FollowedEvent ハンドラ
         streaming.on("followed", follow_manager.on_followed)
@@ -387,7 +411,7 @@ async def main() -> None:
 
         # 13. StreamingManager 起動
         streaming_task = asyncio.create_task(streaming.start())
-        logger.info("Bot の起動が完了しました")
+        logger.info("りいなbot v%s の起動が完了しました", __version__)
 
         # 停止シグナルを待機
         await stop_event.wait()

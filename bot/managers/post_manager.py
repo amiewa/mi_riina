@@ -60,6 +60,10 @@ class PostManager:
         if not await self._check_cooldown():
             return
 
+        await self._do_random_post()
+
+    async def _do_random_post(self) -> None:
+        """実際の投稿処理（チェックなし）。AdminManagerからも呼ばれる。"""
         # 台詞取得
         serif_data = self._serif_loader.random
         if not serif_data or "posts" not in serif_data:
