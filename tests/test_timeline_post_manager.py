@@ -1,7 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, mock_open
 from bot.managers.timeline_post_manager import TimelinePostManager
-from bot.core.config import AppConfig
 
 @pytest.fixture
 def mock_config():

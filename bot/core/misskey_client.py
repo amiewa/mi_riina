@@ -18,6 +18,26 @@ logger = logging.getLogger(__name__)
 EXCLUDED_VISIBILITIES = {"followers", "specified"}
 
 
+def dict_to_note_event(n: dict) -> NoteEvent:
+    """Misskey API の dict レスポンスを NoteEvent に変換する。
+
+    get_timeline() の結果を NoteEvent に変換するヘルパー。
+    timeline_post_manager / poll_manager などで共通利用する。
+    """
+    return NoteEvent(
+        note_id=n.get("id", ""),
+        user_id=n.get("userId", ""),
+        username=n.get("user", {}).get("username"),
+        text=n.get("text"),
+        cw=n.get("cw"),
+        visibility=n.get("visibility", "public"),
+        reply_id=n.get("replyId"),
+        renote_id=n.get("renoteId"),
+        has_poll=n.get("poll") is not None,
+        file_ids=[f["id"] for f in n.get("files", [])],
+    )
+
+
 def filter_notes(notes: list[NoteEvent], bot_user_id: str) -> list[NoteEvent]:
     """共通フィルタ: TL系機能で取得したノートをフィルタリングする。
 

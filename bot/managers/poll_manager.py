@@ -17,8 +17,7 @@ from pydantic import BaseModel, Field, field_validator
 from bot.core.ai_client import AIClientBase
 from bot.core.config import AppConfig
 from bot.core.database import Database
-from bot.core.misskey_client import MisskeyClient, filter_notes
-from bot.core.models import NoteEvent
+from bot.core.misskey_client import MisskeyClient, dict_to_note_event, filter_notes
 from bot.utils.ng_word_manager import NGWordManager
 from bot.utils.night_mode import is_night_mode
 from bot.utils.serif_loader import SerifLoader
@@ -189,21 +188,7 @@ class PollManager:
             limit=poll_config.max_notes_fetch,
         )
 
-        note_events = [
-            NoteEvent(
-                note_id=n.get("id", ""),
-                user_id=n.get("userId", ""),
-                username=n.get("user", {}).get("username"),
-                text=n.get("text"),
-                cw=n.get("cw"),
-                visibility=n.get("visibility", "public"),
-                reply_id=n.get("replyId"),
-                renote_id=n.get("renoteId"),
-                has_poll=n.get("poll") is not None,
-                file_ids=[f["id"] for f in n.get("files", [])],
-            )
-            for n in raw_notes
-        ]
+        note_events = [dict_to_note_event(n) for n in raw_notes]
 
         filtered = filter_notes(note_events, self._misskey.bot_user_id)
 

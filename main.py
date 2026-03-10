@@ -7,6 +7,7 @@ import asyncio
 import logging
 import logging.handlers
 import os
+import random
 import signal
 import sys
 from datetime import datetime
@@ -39,6 +40,7 @@ from bot.managers.wordcloud_manager import WordcloudManager
 from bot.utils.ng_word_manager import NGWordManager
 from bot.utils.rate_limiter import RateLimiter
 from bot.utils.serif_loader import SerifLoader
+from bot.utils.channel_utils import get_required_channels
 from bot.utils.tokenizer import SudachiTokenizer
 
 logger = logging.getLogger("bot")
@@ -250,8 +252,6 @@ async def main() -> None:
 
         # 11. StreamingManager にイベントハンドラ登録
         # 購読するチャンネルを動的に決定
-        from bot.utils.channel_utils import get_required_channels
-
         channels = get_required_channels(config)
         logger.info("WebSocket 購読チャンネル: %s", channels)
 
@@ -355,8 +355,6 @@ async def main() -> None:
         # 記念日イベント投稿のスケジュール登録
         event_key = scheduled_post_manager.get_today_event_key()
         if event_key and config.posting.event.enabled:
-            import random
-
             now = datetime.now(JST)
             # 7〜22時のランダムな時刻
             if now.hour < 22:

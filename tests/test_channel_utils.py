@@ -1,6 +1,5 @@
 """チャンネルユーティリティのテスト"""
 
-import pytest
 from bot.core.config import AppConfig
 from bot.utils.channel_utils import get_required_channels
 

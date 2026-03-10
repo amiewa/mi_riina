@@ -80,6 +80,7 @@ class PostManager:
             scheduled_delete_at = delete_time.isoformat()
 
         # 投稿
+        post_id = None
         try:
             post_id = await self._db.insert_post(
                 post_type="random",
@@ -101,10 +102,11 @@ class PostManager:
         except Exception as e:
             logger.error("ランダム投稿に失敗しました: %s", str(e))
             # 投稿レコードの削除（リトライ許可）
-            try:
-                await self._db.delete_post_by_id(post_id)
-            except Exception:
-                pass
+            if post_id is not None:
+                try:
+                    await self._db.delete_post_by_id(post_id)
+                except Exception:
+                    pass
 
     async def _check_cooldown(self) -> bool:
         """クールダウンを確認する。制限内なら True、制限超過なら False。"""

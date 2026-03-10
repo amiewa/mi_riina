@@ -8,7 +8,7 @@
 import hashlib
 import logging
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -173,8 +173,6 @@ class HoroscopeManager:
             auto_delete = self._config.posting.auto_delete.horoscope
             scheduled_delete_at = None
             if auto_delete.enabled:
-                from datetime import timedelta
-
                 delete_time = now + timedelta(hours=auto_delete.after_hours)
                 scheduled_delete_at = delete_time.isoformat()
 
@@ -245,11 +243,6 @@ class HoroscopeManager:
                 rank_str = MEDAL_EMOJIS[i]
             else:
                 rank_str = f"{i + 1}位"
-                # 2桁の場合はそのまま、1桁の場合は全角スペースを追加
-                if i + 1 < 10:
-                    rank_str = f"{i + 1}位"
-                else:
-                    rank_str = f"{i + 1}位"
 
             # 星座名をパディング
             name_padded = r["name"] + "　" * (MAX_NAME_LEN - len(r["name"]))

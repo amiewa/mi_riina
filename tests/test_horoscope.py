@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 import pytest_asyncio
 
-from bot.core.config import AppConfig, load_config
+from bot.core.config import AppConfig
 from bot.core.database import Database
 from bot.managers.horoscope_manager import (
     ZODIAC_SIGNS,
@@ -22,7 +22,7 @@ from bot.managers.horoscope_manager import (
 @pytest.fixture
 def config() -> AppConfig:
     """テスト用の設定を返す。"""
-    return load_config("config/config.yaml")
+    return AppConfig()
 
 
 @pytest_asyncio.fixture

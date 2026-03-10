@@ -5,6 +5,7 @@ bot管理者がメンションでコマンドを送信することで、
 """
 
 import logging
+import random
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -119,8 +120,6 @@ class AdminManager:
         """不正なコマンド時のエラー応答"""
         fallback_data = self._serif_loader.fallback or {}
         serifs = fallback_data.get("command_error", [])
-        import random
-
         text = random.choice(serifs) if serifs else "コマンドエラー"
         await self._misskey.create_note(
             text=text,
