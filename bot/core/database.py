@@ -74,6 +74,7 @@ class Database:
                 post_type           TEXT,
                 execution_key       TEXT,
                 content             TEXT,
+                provider            TEXT,
                 posted_at           TEXT NOT NULL,
                 scheduled_delete_at TEXT,
                 drive_file_id       TEXT,
@@ -116,6 +117,23 @@ class Database:
                 rank              INTEGER DEFAULT 1
             )
         """)
+
+        # 既存DB向けマイグレーション: provider カラム追加
+        await self._migrate_add_provider_column()
+
+    async def _migrate_add_provider_column(self) -> None:
+        """posts テーブルに provider カラムが存在しない場合に追加する。"""
+        assert self._db is not None
+        cursor = await self._db.execute("PRAGMA table_info(posts)")
+        columns = await cursor.fetchall()
+        column_names = [col[1] for col in columns]
+        if "provider" not in column_names:
+            await self._db.execute(
+                "ALTER TABLE posts ADD COLUMN provider TEXT"
+            )
+            logger.info(
+                "posts テーブルに provider カラムを追加しました"
+            )
 
     async def _create_indexes(self) -> None:
         """インデックスを作成する。"""
@@ -199,6 +217,7 @@ class Database:
         content: str | None,
         scheduled_delete_at: str | None = None,
         drive_file_id: str | None = None,
+        provider: str | None = None,
     ) -> int:
         """投稿レコードを挿入し、IDを返す。
         execution_key の UNIQUE 制約違反時は sqlite3.IntegrityError が発生する。
@@ -207,13 +226,14 @@ class Database:
         now = datetime.now(JST).isoformat()
         cursor = await self._db.execute(
             """INSERT INTO posts
-               (post_type, execution_key, content, posted_at,
+               (post_type, execution_key, content, provider, posted_at,
                 scheduled_delete_at, drive_file_id)
-               VALUES (?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (
                 post_type,
                 execution_key,
                 content,
+                provider,
                 now,
                 scheduled_delete_at,
                 drive_file_id,

@@ -20,6 +20,9 @@ package-lock.json
 # Local Environment
 .env
 config/config.yaml
+config/character_prompt.md
+config/reaction_rules.yaml
+config/serif/*.yaml
 
 # Data (DB・バックアップ・フォント等)
 data/

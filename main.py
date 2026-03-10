@@ -14,14 +14,17 @@ import signal
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
 from zoneinfo import ZoneInfo
 
 import aiohttp
+import yaml
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from bot import __version__
-from bot.core.config import AppConfig, load_config
+from bot.core.config import AppConfig, ReactionRule, load_config
 from bot.core.database import Database
+from bot.core.ai_client import AIClientBase
 from bot.core.gemini_client import GeminiClient
 from bot.core.misskey_client import MisskeyClient
 from bot.core.models import MentionEvent
@@ -89,8 +92,113 @@ def setup_logging(config: AppConfig) -> None:
     logger.info("ログを設定しました（レベル: %s）", log_level)
 
 
+# 起動時に存在を確認する設定ファイル一覧
+REQUIRED_CONFIG_FILES = [
+    "config/config.yaml",
+    "config/character_prompt.md",
+    "config/reaction_rules.yaml",
+    "config/serif/scheduled.yaml",
+    "config/serif/weekday_posts.yaml",
+    "config/serif/random.yaml",
+    "config/serif/fallback.yaml",
+    "config/serif/poll.yaml",
+    "config/serif/event.yaml",
+]
+
+
+def _check_required_files() -> None:
+    """必須設定ファイルの存在チェック。不在の場合は起動中断。"""
+    missing = [f for f in REQUIRED_CONFIG_FILES if not Path(f).exists()]
+    if missing:
+        for f in missing:
+            print(
+                f"{f} が見つかりません。"
+                f"{f}.example をコピーして作成してください。",
+                file=sys.stderr,
+            )
+        sys.exit(1)
+
+
+def _load_reaction_rules(rules_file: str) -> list[dict[str, Any]]:
+    """リアクションルールファイルを読み込む。"""
+    path = Path(rules_file)
+    if not path.exists():
+        print(
+            f"{rules_file} が見つかりません。"
+            f"{rules_file}.example をコピーして作成してください。",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    with open(path, encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+    return data.get("rules", []) if data else []
+
+
+def _create_ai_client(
+    provider: str,
+    config: AppConfig,
+    session: aiohttp.ClientSession,
+) -> AIClientBase:
+    """指定プロバイダの AI クライアントを生成する。"""
+    if provider == "gemini":
+        gemini_key = os.getenv("GEMINI_API_KEY", "")
+        if not gemini_key:
+            logger.error("GEMINI_API_KEY が設定されていません")
+            sys.exit(1)
+        return GeminiClient(
+            api_key=gemini_key,
+            model=config.ai.gemini.model,
+            max_output_tokens=config.ai.gemini.max_output_tokens,
+            temperature=config.ai.gemini.temperature,
+            timeout_seconds=config.ai.timeout_seconds,
+            input_max_chars=config.ai.input_max_chars,
+        )
+    elif provider == "ollama":
+        ollama_url = os.getenv("OLLAMA_BASE_URL", "")
+        if not ollama_url:
+            logger.error("OLLAMA_BASE_URL が設定されていません")
+            sys.exit(1)
+        return OllamaClient(
+            base_url=ollama_url,
+            model=config.ai.ollama.model,
+            temperature=config.ai.ollama.temperature,
+            num_predict=config.ai.ollama.num_predict,
+            timeout_seconds=config.ai.timeout_seconds,
+            input_max_chars=config.ai.input_max_chars,
+            session=session,
+        )
+    else:  # openrouter
+        openrouter_key = os.getenv("OPENROUTER_API_KEY", "")
+        if not openrouter_key:
+            logger.error("OPENROUTER_API_KEY が設定されていません")
+            sys.exit(1)
+        return OpenRouterClient(
+            api_key=openrouter_key,
+            session=session,
+            model=config.ai.openrouter.model,
+            max_tokens=config.ai.openrouter.max_tokens,
+            temperature=config.ai.openrouter.temperature,
+            timeout_seconds=config.ai.timeout_seconds,
+            input_max_chars=config.ai.input_max_chars,
+        )
+
+
+def _get_ai_client(
+    function_name: str,
+    config: AppConfig,
+    ai_clients: dict[str, AIClientBase],
+) -> AIClientBase:
+    """機能名から AI クライアントを解決する。"""
+    fp = config.ai.function_providers
+    provider = getattr(fp, function_name, None) or config.ai.provider
+    return ai_clients[provider]
+
+
 async def main() -> None:
     """メインの起動シーケンス"""
+    # 0. 必須設定ファイルの存在チェック
+    _check_required_files()
+
     # 1. config.yaml + .env ロード
     try:
         config = load_config("config/config.yaml")
@@ -112,6 +220,16 @@ async def main() -> None:
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, signal_handler)
+
+    # 3a. リアクションルールの読み込み
+    raw_rules = _load_reaction_rules(config.reaction.rules_file)
+    config.reaction.rules = [
+        ReactionRule(**r) for r in raw_rules
+    ]
+    logger.info(
+        "リアクションルールを読み込みました: %d 件",
+        len(config.reaction.rules),
+    )
 
     # 4. Database 初期化
     db = Database(config.storage.database_path)
@@ -138,48 +256,25 @@ async def main() -> None:
         # 7. Tokenizer 初期化
         tokenizer = SudachiTokenizer(dict_type=config.bot.tokenizer.sudachi_dict)
 
-        # 8. AIClient 初期化
-        if config.ai.provider == "gemini":
-            gemini_key = os.getenv("GEMINI_API_KEY", "")
-            if not gemini_key:
-                logger.error("GEMINI_API_KEY が設定されていません")
-                sys.exit(1)
-            ai_client = GeminiClient(
-                api_key=gemini_key,
-                model=config.ai.gemini.model,
-                max_output_tokens=config.ai.gemini.max_output_tokens,
-                temperature=config.ai.gemini.temperature,
-                timeout_seconds=config.ai.timeout_seconds,
-                input_max_chars=config.ai.input_max_chars,
+        # 8. AIClient 初期化（機能別プロバイダ対応）
+        # 使用されるプロバイダを集約
+        fp = config.ai.function_providers
+        needed_providers = {config.ai.provider}
+        for func_name in ["reply", "horoscope", "timeline_post", "poll"]:
+            p = getattr(fp, func_name, None)
+            if p:
+                needed_providers.add(p)
+
+        # 必要なプロバイダのみインスタンス化
+        ai_clients: dict[str, AIClientBase] = {}
+        for provider in needed_providers:
+            ai_clients[provider] = _create_ai_client(
+                provider, config, session
             )
-        elif config.ai.provider == "ollama":
-            ollama_url = os.getenv("OLLAMA_BASE_URL", "")
-            if not ollama_url:
-                logger.error("OLLAMA_BASE_URL が設定されていません")
-                sys.exit(1)
-            ai_client = OllamaClient(
-                base_url=ollama_url,
-                model=config.ai.ollama.model,
-                temperature=config.ai.ollama.temperature,
-                num_predict=config.ai.ollama.num_predict,
-                timeout_seconds=config.ai.timeout_seconds,
-                input_max_chars=config.ai.input_max_chars,
-                session=session,
-            )
-        else:  # openrouter
-            openrouter_key = os.getenv("OPENROUTER_API_KEY", "")
-            if not openrouter_key:
-                logger.error("OPENROUTER_API_KEY が設定されていません")
-                sys.exit(1)
-            ai_client = OpenRouterClient(
-                api_key=openrouter_key,
-                session=session,
-                model=config.ai.openrouter.model,
-                max_tokens=config.ai.openrouter.max_tokens,
-                temperature=config.ai.openrouter.temperature,
-                timeout_seconds=config.ai.timeout_seconds,
-                input_max_chars=config.ai.input_max_chars,
-            )
+        logger.info(
+            "AI クライアントを初期化しました: %s",
+            list(ai_clients.keys()),
+        )
 
         # 9. MisskeyClient 初期化
         misskey_url = os.getenv("MISSKEY_INSTANCE_URL", "")
@@ -209,18 +304,24 @@ async def main() -> None:
         )
 
         # 10. 各 Manager 初期化
+        # 機能別 AI クライアントの解決
+        reply_ai = _get_ai_client("reply", config, ai_clients)
+        horoscope_ai = _get_ai_client("horoscope", config, ai_clients)
+        timeline_ai = _get_ai_client("timeline_post", config, ai_clients)
+        poll_ai = _get_ai_client("poll", config, ai_clients)
+
         post_manager = PostManager(config, db, misskey, serif_loader)
         scheduled_post_manager = ScheduledPostManager(config, db, misskey, serif_loader)
         weekday_post_manager = WeekdayPostManager(config, db, misskey, serif_loader)
         timeline_post_manager = TimelinePostManager(
-            config, db, misskey, tokenizer, ng_word_manager, ai_client
+            config, db, misskey, tokenizer, ng_word_manager, timeline_ai
         )
         affinity_manager = AffinityManager(config, db)
         reply_manager = ReplyManager(
             config,
             db,
             misskey,
-            ai_client,
+            reply_ai,
             ng_word_manager,
             rate_limiter,
             serif_loader,
@@ -229,10 +330,10 @@ async def main() -> None:
         reaction_manager = ReactionManager(config, db, misskey)
         follow_manager = FollowManager(config, db, misskey)
         poll_manager = PollManager(
-            config, db, misskey, ai_client, tokenizer, ng_word_manager, serif_loader
+            config, db, misskey, poll_ai, tokenizer, ng_word_manager, serif_loader
         )
         horoscope_manager = HoroscopeManager(
-            config, db, misskey, ai_client, ng_word_manager
+            config, db, misskey, horoscope_ai, ng_word_manager
         )
         wordcloud_manager = WordcloudManager(
             config, db, misskey, tokenizer, ng_word_manager, session
@@ -486,11 +587,12 @@ async def main() -> None:
         serif_loader.stop_watching()
 
     finally:
-        # AIClient 終了
-        try:
-            await ai_client.close()
-        except Exception:
-            pass
+        # 全 AIClient 終了
+        for client in ai_clients.values():
+            try:
+                await client.close()
+            except Exception:
+                pass
 
         # aiohttp セッション終了
         await session.close()

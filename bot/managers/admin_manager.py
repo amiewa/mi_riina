@@ -128,38 +128,87 @@ class AdminManager:
         )
 
     async def _handle_status(self, reply_id: str) -> None:
-        """/admin status の処理"""
+        """/admin status の処理（絵文字ベース表示）"""
         c = self._config
         today_start = datetime.now(JST).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
 
+        # 本日の投稿総数
         row = await self._db.fetchone(
             """
             SELECT COUNT(*) as count FROM posts
-            WHERE post_type IN ('reply', 'horoscope', 'timeline', 'poll')
+            WHERE note_id IS NOT NULL
               AND posted_at >= ?
             """,
             (today_start.isoformat(),),
         )
         today_posts_count = row["count"] if row else 0
 
+        # プロバイダ別API使用数
+        provider_rows = await self._db.fetchall(
+            """SELECT provider, COUNT(*) as cnt FROM posts
+               WHERE posted_at >= ? AND provider IS NOT NULL
+               GROUP BY provider""",
+            (today_start.isoformat(),),
+        )
+        provider_counts = {
+            r["provider"]: r["cnt"] for r in provider_rows
+        }
+        provider_summary = " ".join(
+            f"{p}:{cnt}" for p, cnt in provider_counts.items()
+        )
+        if not provider_summary:
+            provider_summary = "なし"
+
         stock_count = await self._db.get_stock_count()
+
+        # 機能別プロバイダ解決
+        fp = c.ai.function_providers
+        def _resolve(func: str) -> str:
+            return getattr(fp, func, None) or c.ai.provider
+
+        # ✅/❌ ヘルパー
+        def _flag(enabled: bool) -> str:
+            return "✅" if enabled else "❌"
 
         lines = [
             f"りいなbot v{__version__}",
             "─────────────",
-            f"ai: {c.ai.provider} / 本日の投稿数: {today_posts_count}件",
-            f"posting: {c.posting.default_visibility} / cooldown: {c.posting.cooldown_minutes}分",  # noqa: E501
-            f"night_mode: {c.posting.night_mode.enabled} / {c.posting.night_mode.start_hour}:00〜{c.posting.night_mode.end_hour}:00",  # noqa: E501
-            f"random_post: {c.posting.random_post.enabled} / {c.posting.random_post.interval_minutes}分 / prob: {c.posting.random_post.probability}",  # noqa: E501
-            f"scheduled: {c.posting.scheduled_posts.enabled} / prob: {c.posting.scheduled_posts.probability}",  # noqa: E501
-            f"weekday: {c.posting.weekday_posts.enabled} / prob: {c.posting.weekday_posts.probability}",  # noqa: E501
-            f"timeline: {c.posting.timeline_post.enabled} / {c.posting.timeline_post.source} / {c.posting.timeline_post.interval_minutes}分 / max: {c.posting.timeline_post.max_notes_fetch} / min_kw: {c.posting.timeline_post.min_keyword_length} / prob: {c.posting.timeline_post.probability}",  # noqa: E501
-            f"horoscope: {c.posting.horoscope.enabled} / {c.posting.horoscope.mode} / {c.posting.horoscope.post_hour}:00",  # noqa: E501
-            f"wordcloud: {c.posting.wordcloud.enabled} / {c.posting.wordcloud.interval_hours}h / {c.posting.wordcloud.timeline_source} / stock: {stock_count}語",  # noqa: E501
-            f"poll: {c.posting.poll.enabled} / {c.posting.poll.mode} / {c.posting.poll.interval_hours}h / expire: {c.posting.poll.expire_hours}h / {c.posting.poll.timeline_source} / max: {c.posting.poll.max_notes_fetch} / prob: {c.posting.poll.probability}",  # noqa: E501
-            f"event: {c.posting.event.enabled}",
+            f"🤖 🔧{c.ai.provider}"
+            f" 💬{_resolve('reply')}"
+            f" 🔮{_resolve('horoscope')}"
+            f" 📰{_resolve('timeline_post')}"
+            f" 🗳️{_resolve('poll')}",
+            f"📊本日: {today_posts_count}件"
+            f" ({provider_summary})",
+            "─────────────",
+            f"📮{c.posting.default_visibility}"
+            f" / ⏱️{c.posting.cooldown_minutes}分"
+            f" / 🌙{c.posting.night_mode.start_hour}"
+            f"-{c.posting.night_mode.end_hour}時",
+            f"🎲random: {_flag(c.posting.random_post.enabled)}"
+            f" {c.posting.random_post.interval_minutes}分"
+            f" p={c.posting.random_post.probability}",
+            f"📋sched: {_flag(c.posting.scheduled_posts.enabled)}"
+            f" p={c.posting.scheduled_posts.probability}",
+            f"📅weekday: {_flag(c.posting.weekday_posts.enabled)}"
+            f" p={c.posting.weekday_posts.probability}",
+            f"📰tl: {_flag(c.posting.timeline_post.enabled)}"
+            f" {c.posting.timeline_post.mode}"
+            f" {c.posting.timeline_post.interval_minutes}分"
+            f" p={c.posting.timeline_post.probability}",
+            f"🔮horo: {_flag(c.posting.horoscope.enabled)}"
+            f" {c.posting.horoscope.mode}"
+            f" {c.posting.horoscope.post_hour}:00",
+            f"☁️wc: {_flag(c.posting.wordcloud.enabled)}"
+            f" {c.posting.wordcloud.interval_hours}h"
+            f" stock:{stock_count}語",
+            f"🗳️poll: {_flag(c.posting.poll.enabled)}"
+            f" {c.posting.poll.mode}"
+            f" {c.posting.poll.interval_hours}h"
+            f" p={c.posting.poll.probability}",
+            f"🎉event: {_flag(c.posting.event.enabled)}",
         ]
 
         text = "\n".join(lines)

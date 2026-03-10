@@ -22,13 +22,15 @@
    git clone https://github.com/amiewa/mi_riina.git
    cd mi_riina
    ```
-2. 設定ファイルの雛形をコピーします。
+2. セットアップスクリプトを実行し、設定ファイルの雛形をコピーします。
    ```bash
-   cp .env.example .env
-   cp config/config.yaml.example config/config.yaml
+   bash scripts/setup.sh
    ```
 3. `.env` を開き、自身の環境に合わせて `MISSKEY_INSTANCE_URL` や `MISSKEY_API_TOKEN`、各種LLMのAPIキー等を設定します。
-4. Docker Compose を用いてコンテナを起動します。
+4. `config/config.yaml` を開き、投稿設定やAIプロバイダの設定を調整します。
+   - `ai.function_providers` で機能別にAIプロバイダを個別指定できます（リプライ、占い、TL連動投稿、アンケートごとに異なるプロバイダを使い分け可能）。
+   - `config/reaction_rules.yaml` でリアクションルールをカスタマイズできます。
+5. Docker Compose を用いてコンテナを起動します。
    ```bash
    docker compose up -d
    ```

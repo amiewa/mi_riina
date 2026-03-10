@@ -4,7 +4,7 @@ bot:
 
 # bot管理コマンド
 admin:
-  usernames: [your_username]                # 管理者のMisskeyユーザー名リスト（例: ["admin"]）
+  usernames: [your_username]                # 管理者のMisskeyユーザー名（例: ["admin"]）
 
 # 形態素解析設定
   tokenizer:
@@ -34,6 +34,14 @@ ai:
     model: "stepfun/step-3.5-flash:free"
     max_tokens: 1024
     temperature: 1.0
+
+  # 機能別プロバイダ上書き（省略または null のフィールドは provider の値を使用）
+  # 無料枠のあるプロバイダを占いやアンケートに割り当て、会話用にAPI残量を温存する等の使い分けが可能
+  function_providers:
+    reply: null                 # null = デフォルト (provider) を使用
+    horoscope: null
+    timeline_post: null
+    poll: null
 
 # 投稿設定
 posting:
@@ -134,20 +142,7 @@ posting:
 reaction:
   enabled: true
   mutual_only: true             # true: 相互フォローのみ対象
-  rules:
-    - keywords:
-        - "おはよう"
-        - "おはよ"
-      reactions:
-        - "🌄"
-        - "🌞"
-        - "🌅"
-    - keywords:
-        - "おやすみ"
-        - "おやすみなさい"
-      reactions:
-        - "🌙"
-        - "💤"
+  rules_file: "config/reaction_rules.yaml"  # ルール定義ファイル（別ファイル管理）
 
 # フォロー管理
 follow:

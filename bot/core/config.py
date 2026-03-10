@@ -56,6 +56,18 @@ class OpenRouterConfig(BaseModel):
     temperature: float = Field(default=1.0, ge=0.0, le=2.0)
 
 
+class FunctionProvidersConfig(BaseModel):
+    """機能別AIプロバイダ上書き設定
+
+    null のフィールドは ai.provider の値を使用する。
+    """
+
+    reply: Literal["gemini", "ollama", "openrouter"] | None = None
+    horoscope: Literal["gemini", "ollama", "openrouter"] | None = None
+    timeline_post: Literal["gemini", "ollama", "openrouter"] | None = None
+    poll: Literal["gemini", "ollama", "openrouter"] | None = None
+
+
 class AIConfig(BaseModel):
     """生成 AI 設定"""
 
@@ -65,6 +77,7 @@ class AIConfig(BaseModel):
     gemini: GeminiConfig = GeminiConfig()
     ollama: OllamaConfig = OllamaConfig()
     openrouter: OpenRouterConfig = OpenRouterConfig()
+    function_providers: FunctionProvidersConfig = FunctionProvidersConfig()
 
 
 class AdminConfig(BaseModel):
@@ -236,6 +249,7 @@ class ReactionConfig(BaseModel):
 
     enabled: bool = True
     mutual_only: bool = True
+    rules_file: str = "config/reaction_rules.yaml"
     rules: list[ReactionRule] = []
 
 
