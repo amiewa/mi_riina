@@ -249,10 +249,16 @@ async def main() -> None:
             await follow_manager.on_mention(event)
 
         # 11. StreamingManager にイベントハンドラ登録
+        # 購読するチャンネルを動的に決定
+        from bot.utils.channel_utils import get_required_channels
+
+        channels = get_required_channels(config)
+        logger.info("WebSocket 購読チャンネル: %s", channels)
+
         streaming = StreamingManager(
             instance_url=misskey_url,
             token=misskey_token,
-            channels=["homeTimeline", "main"],
+            channels=channels,
         )
 
         # NoteEvent ハンドラ
