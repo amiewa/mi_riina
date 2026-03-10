@@ -170,7 +170,7 @@ reply:
 
 # bot管理コマンド
 admin:
-  usernames: [admin]                # 管理者のMisskeyユーザー名リスト（例: ["amiewa"]）
+  usernames: [your_username]                # 管理者のMisskeyユーザー名リスト（例: ["admin"]）
 
 # NGワード
 ng_words:
