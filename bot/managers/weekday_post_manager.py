@@ -58,8 +58,10 @@ class WeekdayPostManager:
         except Exception as e:
             logger.error("曜日別投稿に失敗しました: %s", str(e))
 
-    async def _do_weekday_post(self, check_probability: bool = False) -> None:
-        """実際の曜日別投稿処理（チェックなし）。AdminManagerからも呼ばれる。"""
+    async def _do_weekday_post(
+        self, check_probability: bool = False, force: bool = False
+    ) -> None:
+        """実際の曜日別投稿処理。AdminManagerからも呼ばれる。"""
         now = datetime.now(JST)
         weekday = WEEKDAY_NAMES[now.weekday()]
         time_key = now.strftime("%H:%M")
@@ -87,6 +89,9 @@ class WeekdayPostManager:
         today = now.strftime("%Y-%m-%d")
         execution_key = f"weekday:{weekday}:{time_key}:{today}"
 
+        if force:
+            execution_key = None
+
         # 台詞選択
         posts = entry.get("posts", [])
         if not posts:
@@ -102,11 +107,13 @@ class WeekdayPostManager:
                 content=text,
             )
         except sqlite3.IntegrityError:
-            logger.info(
-                "曜日別投稿は既に実行済みです（execution_key=%s）",
-                execution_key,
-            )
-            return
+            if not force:
+                logger.info(
+                    "曜日別投稿は既に実行済みです（execution_key=%s）",
+                    execution_key,
+                )
+                return
+            raise
 
         try:
             note_id = await self._misskey.create_note(

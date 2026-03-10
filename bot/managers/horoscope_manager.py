@@ -134,13 +134,16 @@ class HoroscopeManager:
 
         await self._do_horoscope_post()
 
-    async def _do_horoscope_post(self) -> None:
-        """実際の星座占い投稿処理（チェックなし）。AdminManagerからも呼ばれる。"""
+    async def _do_horoscope_post(self, force: bool = False) -> None:
+        """実際の星座占い投稿処理。AdminManagerからも呼ばれる。"""
         horoscope_config = self._config.posting.horoscope
 
         now = datetime.now(JST)
         today_str = now.strftime("%Y-%m-%d")
         execution_key = f"horoscope:{today_str}"
+
+        if force:
+            execution_key = None
 
         # execution_key 二重投稿チェック
         try:
@@ -150,11 +153,14 @@ class HoroscopeManager:
                 content=None,
             )
         except Exception:
-            logger.info(
-                "星座占いは既に投稿済みです（execution_key=%s）",
-                execution_key,
-            )
-            return
+            if not force:
+                logger.info(
+                    "星座占いは既に投稿済みです（execution_key=%s）",
+                    execution_key,
+                )
+                return
+            # force=True の場合は IntegrityError にならないはず（key=None なので）
+            raise
 
         try:
             # モード判定

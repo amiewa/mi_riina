@@ -176,23 +176,23 @@ class AdminManager:
 
         try:
             if post_type == "random":
-                await self._post_manager._do_random_post()
+                await self._post_manager._do_random_post(force=True)
             elif post_type == "scheduled":
                 now = datetime.now(JST)
                 time_key = f"{now.hour:02d}:{now.minute:02d}"
-                await self._scheduled_post_manager._do_scheduled_post(time_key)
+                await self._scheduled_post_manager._do_scheduled_post(time_key, force=True)
             elif post_type == "weekday":
-                await self._weekday_post_manager._do_weekday_post()
+                await self._weekday_post_manager._do_weekday_post(force=True)
             elif post_type == "timeline":
-                await self._timeline_post_manager._do_timeline_post()
+                await self._timeline_post_manager._do_timeline_post(force=True)
             elif post_type == "horoscope":
-                await self._horoscope_manager._do_horoscope_post()
+                await self._horoscope_manager._do_horoscope_post(force=True)
             elif post_type == "wordcloud":
-                await self._wordcloud_manager._do_wordcloud_post()
+                await self._wordcloud_manager._do_wordcloud_post(force=True)
             elif post_type == "poll":
-                await self._poll_manager._do_poll_post()
+                await self._poll_manager._do_poll_post(force=True)
             elif post_type == "event":
-                await self._scheduled_post_manager._do_event_post()
+                await self._scheduled_post_manager._do_event_post(force=True)
             else:
                 await self._reply_error(reply_id)
                 return

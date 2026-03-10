@@ -101,13 +101,16 @@ class PollManager:
 
         await self._do_poll_post()
 
-    async def _do_poll_post(self) -> None:
-        """実際のアンケート投稿処理（チェックなし）。AdminManagerからも呼ばれる。"""
+    async def _do_poll_post(self, force: bool = False) -> None:
+        """実際のアンケート投稿処理。AdminManagerからも呼ばれる。"""
         poll_config = self._config.posting.poll
 
         # execution_key
         now = datetime.now(JST)
         execution_key = f"poll:{now.strftime('%Y-%m-%dT%H:00')}"
+
+        if force:
+            execution_key = None
 
         # 自動削除
         auto_delete = self._config.posting.auto_delete.poll
@@ -142,10 +145,12 @@ class PollManager:
                 scheduled_delete_at=scheduled_delete_at,
             )
         except sqlite3.IntegrityError:
-            logger.info(
-                "アンケートは既に実行済みです（execution_key=%s）", execution_key
-            )
-            return
+            if not force:
+                logger.info(
+                    "アンケートは既に実行済みです（execution_key=%s）", execution_key
+                )
+                return
+            raise
 
         # expiresAt 計算（UNIXミリ秒）
         expires_at = int(

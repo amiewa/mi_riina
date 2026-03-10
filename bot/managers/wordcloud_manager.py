@@ -179,12 +179,15 @@ class WordcloudManager:
 
         await self._do_wordcloud_post()
 
-    async def _do_wordcloud_post(self) -> None:
-        """実際のワードクラウド投稿処理（チェックなし）。AdminManagerからも呼ばれる。"""
+    async def _do_wordcloud_post(self, force: bool = False) -> None:
+        """実際のワードクラウド投稿処理。AdminManagerからも呼ばれる。"""
 
         now = datetime.now(JST)
         # execution_key: 時間枠ベース
         execution_key = f"wordcloud:{now.strftime('%Y-%m-%dT%H:00')}"
+
+        if force:
+            execution_key = None
 
         # execution_key 二重投稿チェック
         try:
@@ -194,11 +197,13 @@ class WordcloudManager:
                 content=None,
             )
         except Exception:
-            logger.info(
-                "ワードクラウドは既に投稿済みです（execution_key=%s）",
-                execution_key,
-            )
-            return
+            if not force:
+                logger.info(
+                    "ワードクラウドは既に投稿済みです（execution_key=%s）",
+                    execution_key,
+                )
+                return
+            raise
 
         try:
             # ストック数チェック

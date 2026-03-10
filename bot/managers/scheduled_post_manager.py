@@ -61,12 +61,15 @@ class ScheduledPostManager:
 
         await self._do_scheduled_post(time_key)
 
-    async def _do_scheduled_post(self, time_key: str) -> None:
-        """実際の定時投稿処理（チェックなし）。AdminManagerからも呼ばれる。"""
+    async def _do_scheduled_post(self, time_key: str, force: bool = False) -> None:
+        """実際の定時投稿処理。AdminManagerからも呼ばれる。"""
 
         # execution_key で二重投稿チェック
         today = datetime.now(JST).strftime("%Y-%m-%dT")
         execution_key = f"scheduled:{today}{time_key}"
+
+        if force:
+            execution_key = None
 
         # 台詞取得
         serif_data = self._serif_loader.scheduled
@@ -92,11 +95,13 @@ class ScheduledPostManager:
                 scheduled_delete_at=scheduled_delete_at,
             )
         except sqlite3.IntegrityError:
-            logger.info(
-                "定時投稿は既に実行済みです（execution_key=%s）",
-                execution_key,
-            )
-            return
+            if not force:
+                logger.info(
+                    "定時投稿は既に実行済みです（execution_key=%s）",
+                    execution_key,
+                )
+                return
+            raise
 
         try:
             note_id = await self._misskey.create_note(
@@ -124,8 +129,8 @@ class ScheduledPostManager:
 
         await self._do_event_post(date_key)
 
-    async def _do_event_post(self, date_key: str | None = None) -> None:
-        """実際の記念日イベント投稿処理（チェックなし）。AdminManagerからも呼ばれる。"""
+    async def _do_event_post(self, date_key: str | None = None, force: bool = False) -> None:
+        """実際の記念日イベント投稿処理。AdminManagerからも呼ばれる。"""
         if date_key is None:
             date_key = self.get_today_event_key()
             if not date_key:
@@ -135,6 +140,9 @@ class ScheduledPostManager:
         # execution_key で二重投稿チェック
         today = datetime.now(JST).strftime("%Y-%m-%d")
         execution_key = f"event:{date_key}:{today}"
+
+        if force:
+            execution_key = None
 
         # 台詞取得
         serif_data = self._serif_loader.event
@@ -156,11 +164,13 @@ class ScheduledPostManager:
                 content=text,
             )
         except sqlite3.IntegrityError:
-            logger.info(
-                "イベント投稿は既に実行済みです（execution_key=%s）",
-                execution_key,
-            )
-            return
+            if not force:
+                logger.info(
+                    "イベント投稿は既に実行済みです（execution_key=%s）",
+                    execution_key,
+                )
+                return
+            raise
 
         try:
             note_id = await self._misskey.create_note(

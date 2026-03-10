@@ -77,8 +77,8 @@ class TimelinePostManager:
 
         await self._do_timeline_post()
 
-    async def _do_timeline_post(self) -> None:
-        """実際のTL連動投稿処理（チェックなし）。AdminManagerからも呼ばれる。"""
+    async def _do_timeline_post(self, force: bool = False) -> None:
+        """実際のTL連動投稿処理。AdminManagerからも呼ばれる。"""
         tl_config = self._config.posting.timeline_post
 
         # TLからノート取得
