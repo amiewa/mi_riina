@@ -243,6 +243,9 @@ async def main() -> None:
     # 5. aiohttp.ClientSession 生成
     session = aiohttp.ClientSession()
 
+    # 必要なプロバイダのみインスタンス化（例外発生時の finally 節での UnboundLocalError 防止）
+    ai_clients: dict[str, AIClientBase] = {}
+
     try:
         # 6. NGWordManager 初期化
         ng_word_manager = NGWordManager(
@@ -266,7 +269,6 @@ async def main() -> None:
                 needed_providers.add(p)
 
         # 必要なプロバイダのみインスタンス化
-        ai_clients: dict[str, AIClientBase] = {}
         for provider in needed_providers:
             ai_clients[provider] = _create_ai_client(
                 provider, config, session

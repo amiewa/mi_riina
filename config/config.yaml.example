@@ -2,14 +2,14 @@ bot:
   character_prompt_file: "config/character_prompt.md"
   timezone: "Asia/Tokyo"
 
-# bot管理コマンド
-admin:
-  usernames: [your_username]                # 管理者のMisskeyユーザー名（例: ["admin"]）
-
-# 形態素解析設定
+  # 形態素解析設定
   tokenizer:
     engine: "sudachi"          # sudachi（将来: mecab 等への差し替え想定）
     sudachi_dict: "full"       # small / core / full
+
+# bot管理コマンド
+admin:
+  usernames: [your_username]                # 管理者のMisskeyユーザー名（例: ["admin"]）
 
 # 生成 AI 設定
 ai:
