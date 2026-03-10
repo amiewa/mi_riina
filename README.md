@@ -1,4 +1,6 @@
 # Misskey Bot Riina(りいな)
+- Riina(りいな)はMisskeyで動作するキャラクターBotです。
+- [Misskey](https://github.com/misskey-dev/misskey) 2025.12.2 以降で動作を確認しています。
 
 ## できること
 - ランダムでのタイムライン投稿（時間帯ごとの確率調整が可能）
