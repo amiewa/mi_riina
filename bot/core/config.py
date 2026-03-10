@@ -60,7 +60,7 @@ class AIConfig(BaseModel):
     """生成 AI 設定"""
 
     provider: Literal["gemini", "ollama", "openrouter"] = "gemini"
-    input_max_chars: int = Field(default=800, ge=1)
+    input_max_chars: int = Field(default=2500, ge=1)
     timeout_seconds: int = Field(default=30, ge=1)
     gemini: GeminiConfig = GeminiConfig()
     ollama: OllamaConfig = OllamaConfig()

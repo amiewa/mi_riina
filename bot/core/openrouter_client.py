@@ -25,7 +25,7 @@ class OpenRouterClient(AIClientBase):
         max_tokens: int = 1024,
         temperature: float = 1.0,
         timeout_seconds: int = 30,
-        input_max_chars: int = 800,
+        input_max_chars: int = 2500,
     ) -> None:
         self._api_key = api_key
         self._session = session

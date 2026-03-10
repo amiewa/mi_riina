@@ -10,7 +10,7 @@ bot:
 # 生成 AI 設定
 ai:
   provider: "gemini"           # gemini / ollama / openrouter
-  input_max_chars: 800         # AI入力の最大文字数（超過分は切り捨て）
+  input_max_chars: 2500         # AI入力の最大文字数（超過分は切り捨て）
   timeout_seconds: 30          # AI API呼び出しのタイムアウト（全プロバイダ共通）
 
   gemini:

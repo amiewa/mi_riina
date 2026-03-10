@@ -24,7 +24,7 @@ class OllamaClient(AIClientBase):
         temperature: float = 0.8,
         num_predict: int = 300,
         timeout_seconds: int = 30,
-        input_max_chars: int = 800,
+        input_max_chars: int = 2500,
         session: aiohttp.ClientSession | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")

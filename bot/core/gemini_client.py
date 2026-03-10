@@ -20,11 +20,11 @@ class GeminiClient(AIClientBase):
     def __init__(
         self,
         api_key: str,
-        model: str = "gemini-2.5-flash",
+        model: str = "gemini-1.5-flash",
         max_output_tokens: int = 1024,
         temperature: float = 1.0,
         timeout_seconds: int = 30,
-        input_max_chars: int = 800,
+        input_max_chars: int = 2500,
     ) -> None:
         self._client = genai.Client(api_key=api_key)
         self._model = model
