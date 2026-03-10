@@ -4,13 +4,15 @@
 """
 
 import asyncio
+import gzip
 import logging
 import logging.handlers
 import os
 import random
+import shutil
 import signal
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -26,6 +28,7 @@ from bot.core.models import MentionEvent
 from bot.core.ollama_client import OllamaClient
 from bot.core.openrouter_client import OpenRouterClient
 from bot.managers.admin_manager import AdminManager
+from bot.managers.affinity_manager import AffinityManager
 from bot.managers.follow_manager import FollowManager
 from bot.managers.horoscope_manager import HoroscopeManager
 from bot.managers.poll_manager import PollManager
@@ -212,8 +215,16 @@ async def main() -> None:
         timeline_post_manager = TimelinePostManager(
             config, db, misskey, tokenizer, ng_word_manager, ai_client
         )
+        affinity_manager = AffinityManager(config, db)
         reply_manager = ReplyManager(
-            config, db, misskey, ai_client, ng_word_manager, rate_limiter, serif_loader
+            config,
+            db,
+            misskey,
+            ai_client,
+            ng_word_manager,
+            rate_limiter,
+            serif_loader,
+            affinity_manager=affinity_manager,
         )
         reaction_manager = ReactionManager(config, db, misskey)
         follow_manager = FollowManager(config, db, misskey)
@@ -410,6 +421,43 @@ async def main() -> None:
                 misfire_grace_time=300,
             )
 
+            # DBバックアップ
+            backup_h, backup_m = map(int, config.maintenance.backup_time.split(":"))
+            scheduler.add_job(
+                _execute_backup,
+                "cron",
+                hour=backup_h,
+                minute=backup_m,
+                args=[
+                    config.storage.database_path,
+                    config.maintenance.backup_compress,
+                    config.maintenance.keep_backups,
+                ],
+                misfire_grace_time=300,
+            )
+
+            # ログファイル削除
+            log_h, log_m = map(int, config.maintenance.log_cleanup_time.split(":"))
+            scheduler.add_job(
+                _execute_log_cleanup,
+                "cron",
+                hour=log_h,
+                minute=log_m,
+                args=[config.storage.log_dir, config.maintenance.log_cleanup_days],
+                misfire_grace_time=300,
+            )
+
+            # 統計レポート
+            stats_h, stats_m = map(int, config.maintenance.stats_time.split(":"))
+            scheduler.add_job(
+                _execute_stats,
+                "cron",
+                hour=stats_h,
+                minute=stats_m,
+                args=[db],
+                misfire_grace_time=300,
+            )
+
         scheduler.start()
         logger.info("スケジューラを起動しました")
 
@@ -483,6 +531,102 @@ async def _execute_auto_delete(db: Database, misskey: MisskeyClient) -> None:
                 post["note_id"],
                 str(e),
             )
+
+
+async def _execute_backup(
+    db_path: str, backup_compress: bool, keep_backups: int
+) -> None:
+    """DB バックアップを実行する。"""
+    backup_dir = Path("data/backups")
+    backup_dir.mkdir(parents=True, exist_ok=True)
+
+    today = datetime.now(JST).strftime("%Y-%m-%d")
+    src = Path(db_path)
+
+    if not src.exists():
+        logger.warning("バックアップ元の DB ファイルが見つかりません: %s", src)
+        return
+
+    if backup_compress:
+        backup_path = backup_dir / f"riina_bot_{today}.db.gz"
+        await asyncio.to_thread(_copy_and_compress, src, backup_path)
+    else:
+        backup_path = backup_dir / f"riina_bot_{today}.db"
+        await asyncio.to_thread(shutil.copy2, str(src), str(backup_path))
+
+    logger.info("DB バックアップを作成しました: %s", backup_path.name)
+
+    # 古いバックアップの削除
+    backups = sorted(backup_dir.glob("riina_bot_*"))
+    while len(backups) > keep_backups:
+        old = backups.pop(0)
+        old.unlink()
+        logger.info("古いバックアップを削除しました: %s", old.name)
+
+
+def _copy_and_compress(src: Path, dst: Path) -> None:
+    """DB ファイルをコピーして gzip 圧縮する（同期処理）。"""
+    with open(src, "rb") as f_in:
+        with gzip.open(dst, "wb") as f_out:
+            shutil.copyfileobj(f_in, f_out)
+
+
+async def _execute_log_cleanup(log_dir: str, retention_days: int) -> None:
+    """古いログファイルを削除する。"""
+    log_path = Path(log_dir)
+    if not log_path.exists():
+        return
+
+    cutoff = datetime.now(JST) - timedelta(days=retention_days)
+    deleted = 0
+
+    for log_file in log_path.glob("riina_bot_*.log*"):
+        try:
+            name = log_file.stem  # riina_bot_2026-03-01
+            date_str = name.replace("riina_bot_", "")[:10]
+            file_date = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=JST)
+            if file_date < cutoff:
+                log_file.unlink()
+                deleted += 1
+        except (ValueError, IndexError):
+            continue
+
+    if deleted:
+        logger.info("%d 件の古いログファイルを削除しました", deleted)
+
+
+async def _execute_stats(db: Database) -> None:
+    """統計情報をログに出力する。"""
+    since = (datetime.now(JST) - timedelta(hours=24)).isoformat()
+
+    rows = await db.fetchall(
+        """SELECT post_type, COUNT(*) as cnt FROM posts
+           WHERE posted_at >= ? AND note_id IS NOT NULL
+           GROUP BY post_type""",
+        (since,),
+    )
+    post_counts = {row["post_type"]: row["cnt"] for row in rows}
+    total_posts = sum(post_counts.values())
+
+    stock_count = await db.get_stock_count()
+
+    follower_row = await db.fetchone("SELECT COUNT(*) as cnt FROM followers")
+    follower_count = follower_row["cnt"] if follower_row else 0
+
+    mutual_row = await db.fetchone(
+        "SELECT COUNT(*) as cnt FROM followers WHERE i_am_following = 1"
+    )
+    mutual_count = mutual_row["cnt"] if mutual_row else 0
+
+    logger.info(
+        "=== 日次統計 === 投稿合計: %d件 %s / ストック: %d語 / "
+        "フォロワー: %d / 相互: %d",
+        total_posts,
+        post_counts,
+        stock_count,
+        follower_count,
+        mutual_count,
+    )
 
 
 if __name__ == "__main__":

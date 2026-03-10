@@ -18,6 +18,7 @@ from bot.core.database import Database
 from bot.core.misskey_client import MisskeyClient
 from bot.core.models import NoteEvent
 from bot.utils.ng_word_manager import NGWordManager
+from bot.utils.retry import RetryableError, retry_async
 from bot.utils.text_cleaner import clean_note_text
 from bot.utils.tokenizer import TokenizerBase
 
@@ -232,30 +233,29 @@ class WordcloudManager:
             top_words = [w for w, _ in word_counts.most_common(10)]
             content_summary = ", ".join(top_words)
 
-            # 投稿（最大3回リトライ）
+            # 投稿（retry_async で最大2回リトライ）
             note_id = None
             drive_file_id = None
 
-            for attempt in range(3):
-                try:
-                    # ドライブにアップロード
-                    drive_file_id = await self._misskey.upload_file(str(image_path))
+            async def _upload_and_post() -> tuple[str, str]:
+                """Misskey へのアップロードとノート投稿（リトライ対象）。"""
+                fid = await self._misskey.upload_file(str(image_path))
+                nid = await self._misskey.create_note(
+                    text=text,
+                    visibility=self._config.posting.default_visibility,
+                    file_ids=[fid],
+                )
+                return nid, fid
 
-                    # ノート投稿
-                    note_id = await self._misskey.create_note(
-                        text=text,
-                        visibility=self._config.posting.default_visibility,
-                        file_ids=[drive_file_id],
-                    )
-                    break
-                except Exception as e:
-                    logger.error(
-                        "ワードクラウドの投稿に失敗しました（試行 %d/3）: %s",
-                        attempt + 1,
-                        str(e),
-                    )
-                    if attempt < 2:
-                        await asyncio.sleep(10)
+            try:
+                note_id, drive_file_id = await retry_async(
+                    _upload_and_post,
+                    retries=2,
+                    base_delay=10.0,
+                    retry_on=(RetryableError, Exception),
+                )
+            except Exception:
+                pass
 
             # 自動削除スケジュール計算
             auto_delete = self._config.posting.auto_delete.wordcloud

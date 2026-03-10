@@ -36,6 +36,7 @@ class ReplyManager:
         ng_word_manager: NGWordManager,
         rate_limiter: RateLimiter,
         serif_loader: SerifLoader,
+        affinity_manager=None,
     ) -> None:
         self._config = config
         self._db = db
@@ -44,6 +45,7 @@ class ReplyManager:
         self._ng_word = ng_word_manager
         self._rate_limiter = rate_limiter
         self._serif_loader = serif_loader
+        self._affinity = affinity_manager
         self._semaphore = asyncio.Semaphore(config.reply.ai_concurrency)
         self._character_prompt = self._load_character_prompt()
 
@@ -110,9 +112,18 @@ class ReplyManager:
         # AI応答生成
         async with self._semaphore:
             try:
+                # 親密度ランクに応じた追加プロンプトを構築
+                system_prompt = self._character_prompt
+                if self._affinity:
+                    affinity_prompt = await self._affinity.get_affinity_prompt(
+                        event.user_id
+                    )
+                    if affinity_prompt:
+                        system_prompt = f"{system_prompt}\n\n{affinity_prompt}"
+
                 response = await self._ai.generate(
                     user_prompt=cleaned_text,
-                    system_prompt=self._character_prompt,
+                    system_prompt=system_prompt,
                 )
             except Exception as e:
                 logger.error("AI応答の生成に失敗しました: %s", str(e))
@@ -147,6 +158,9 @@ class ReplyManager:
             )
             await self._db.update_post_note_id(post_id, note_id)
             await self._rate_limiter.record(event.user_id)
+            # 投稿成功後に親密度を記録
+            if self._affinity:
+                await self._affinity.record_interaction(event.user_id)
             logger.info(
                 "リプライを送信しました（note_id=%s, user_id=%s）",
                 note_id,

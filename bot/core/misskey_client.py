@@ -11,6 +11,7 @@ from typing import Any
 import aiohttp
 
 from bot.core.models import NoteEvent
+from bot.utils.retry import MisskeyAPIError, classify_http_error
 
 logger = logging.getLogger(__name__)
 
@@ -98,8 +99,8 @@ class MisskeyClient:
                 )
             else:
                 return await self._request("/api/users/show", {"username": username})
-        except RuntimeError as e:
-            if "NOT_FOUND" in str(e) or "404" in str(e) or "400" in str(e):
+        except MisskeyAPIError as e:
+            if e.status in (400, 404) or (e.code and "NOT_FOUND" in e.code):
                 return None
             raise
 
@@ -148,9 +149,7 @@ class MisskeyClient:
                 error_msg = error_info.get("error", {}).get(
                     "message", str(response_body)
                 )
-                raise RuntimeError(
-                    f"Misskey API エラー [{resp.status}] {error_code}: {error_msg}"
-                )
+                raise classify_http_error(resp.status, error_code, error_msg)
 
             logger.debug("API レスポンス: %s -> status=%s", endpoint, resp.status)
             return response_body
@@ -185,8 +184,8 @@ class MisskeyClient:
         try:
             await self._request("/api/notes/delete", {"noteId": note_id})
             logger.info("ノートを削除しました（note_id=%s）", note_id)
-        except RuntimeError as e:
-            if "NO_SUCH_NOTE" in str(e) or "404" in str(e):
+        except MisskeyAPIError as e:
+            if e.status == 404 or (e.code and "NO_SUCH_NOTE" in e.code):
                 logger.info("ノートは既に削除されています（note_id=%s）", note_id)
             else:
                 raise
@@ -233,8 +232,8 @@ class MisskeyClient:
         try:
             await self._request("/api/drive/files/delete", {"fileId": file_id})
             logger.info("ドライブファイルを削除しました（file_id=%s）", file_id)
-        except RuntimeError as e:
-            if "NO_SUCH_FILE" in str(e) or "404" in str(e):
+        except MisskeyAPIError as e:
+            if e.status == 404 or (e.code and "NO_SUCH_FILE" in e.code):
                 logger.info("ファイルは既に削除されています（file_id=%s）", file_id)
             else:
                 raise
