@@ -2,7 +2,11 @@ bot:
   character_prompt_file: "config/character_prompt.md"
   timezone: "Asia/Tokyo"
 
-  # 形態素解析設定
+# bot管理コマンド
+admin:
+  usernames: [your_username]                # 管理者のMisskeyユーザー名リスト（例: ["admin"]）
+
+# 形態素解析設定
   tokenizer:
     engine: "sudachi"          # sudachi（将来: mecab 等への差し替え想定）
     sudachi_dict: "full"       # small / core / full
@@ -67,7 +71,7 @@ posting:
   random_post:
     enabled: true
     interval_minutes: 90
-    probability: 1.0            # 0.0〜1.0 で実行確率
+    probability: 0.8            # 0.0〜1.0 で実行確率
 
   scheduled_posts:
     enabled: true
@@ -167,10 +171,6 @@ reply:
   rate_limit:
     max_per_user_per_hour: 3
   ai_concurrency: 2             # AI呼び出しの同時実行数上限
-
-# bot管理コマンド
-admin:
-  usernames: [your_username]                # 管理者のMisskeyユーザー名リスト（例: ["admin"]）
 
 # NGワード
 ng_words:
