@@ -35,11 +35,16 @@
 りいなbotと同等の機能をGASで実現する取り組みです。
 
 ## 参考にしたプロジェクト
-- [藍ちゃん](https://github.com/syuilo/ai)
+本プロジェクトは、以下のプロジェクトを参考にさせていただきました。深く感謝申し上げます。
+- [藍ちゃん](https://github.com/syuilo/ai) 
 - [アストロラーベちゃん](https://github.com/amanami-takumi/astrolabe_for_misskey_v2)
+- [さんごちゃん](https://github.com/RoiARISE/sango_chan_bot)
+
+- [goodBadWordlist](https://github.com/sayonari/goodBadWordlist) NGワードリストとして利用
 
 ## 使用フォント
 - [Rounded M+](https://github.com/google/fonts) [SIL OPEN FONT LICENSE Version 1.1](https://openfontlicense.org/open-font-license-official-text)
 
+-
 ## ライセンス
 [MIT License](LICENSE)
