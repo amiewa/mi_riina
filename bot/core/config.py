@@ -191,6 +191,7 @@ class WordcloudConfig(BaseModel):
     background_color: str = "white"
     colormap: str = "coolwarm"
     font_path: str | None = None
+    exclude_keywords: list[str] = []
 
     @field_validator("colormap")
     @classmethod

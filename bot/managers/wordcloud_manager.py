@@ -41,6 +41,23 @@ FONT_URL = (
 )
 FONT_FILENAME = "MPLUSRounded1c-Regular.ttf"
 DEFAULT_FONT_DIR = "data/fonts"
+ 
+# システム用語など、ワードクラウドから除外すべき単語
+SYSTEM_STOP_WORDS = {
+    "plain",
+    "center",
+    "from",
+    "color",
+    "scale",
+    "current",
+    "showModal",
+    "dialog",
+    "button",
+    "onClick",
+    "true",
+    "false",
+    "null",
+}
 
 
 class WordcloudManager:
@@ -70,6 +87,9 @@ class WordcloudManager:
 
         # フォントパス（初期化時に解決）
         self._font_path: str | None = None
+ 
+        # 除外キーワードセットの構築
+        self._exclude_keywords = set(self._wc_config.exclude_keywords) | SYSTEM_STOP_WORDS
 
     async def initialize(self) -> None:
         """初期化処理: フォントの確保。"""
@@ -142,10 +162,10 @@ class WordcloudManager:
         # NGワードフィルタリングと長さ制限（min_keyword_length以上の単語を抽出）
         valid_keywords = []
         for kw in keywords:
-            if len(
-                kw
-            ) >= self._wc_config.min_keyword_length and not self._ng_word_manager.contains_ng_word(
-                kw
+            if (
+                len(kw) >= self._wc_config.min_keyword_length
+                and kw not in self._exclude_keywords
+                and not self._ng_word_manager.contains_ng_word(kw)
             ):
                 valid_keywords.append(kw)
 
