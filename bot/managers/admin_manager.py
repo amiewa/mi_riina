@@ -60,6 +60,7 @@ class AdminManager:
         self._poll_manager = poll_manager
 
         self._admin_user_ids: list[str] = []
+        self._processed_note_ids: set[str] = set()
 
     async def initialize(self) -> None:
         """初期化処理（管理者IDの解決）。"""
@@ -84,6 +85,9 @@ class AdminManager:
         if not self._admin_user_ids:
             return False
 
+        if event.note_id in self._processed_note_ids:
+            return True
+
         text = clean_note_text(event.text or "")
 
         if not text.startswith("/admin"):
@@ -95,10 +99,17 @@ class AdminManager:
 
         parts = text.split()
         if len(parts) < 2:
+            self._processed_note_ids.add(event.note_id)
+            if len(self._processed_note_ids) > 1000:
+                self._processed_note_ids.clear()
             await self._reply_error(event.note_id)
             return True
 
         subcommand = parts[1]
+
+        self._processed_note_ids.add(event.note_id)
+        if len(self._processed_note_ids) > 1000:
+            self._processed_note_ids.clear()
 
         try:
             if subcommand == "status":
