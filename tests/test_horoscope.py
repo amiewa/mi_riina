@@ -22,7 +22,10 @@ from bot.managers.horoscope_manager import (
 @pytest.fixture
 def config() -> AppConfig:
     """テスト用の設定を返す。"""
-    return AppConfig()
+    c = AppConfig()
+    # テスト実行時に夜間モードでスキップされないよう無効化しておく
+    c.posting.night_mode.enabled = False
+    return c
 
 
 @pytest_asyncio.fixture

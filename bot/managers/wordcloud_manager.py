@@ -17,6 +17,7 @@ from bot.core.config import AppConfig
 from bot.core.database import Database
 from bot.core.misskey_client import MisskeyClient
 from bot.core.models import NoteEvent
+from bot.utils.night_mode import is_night_mode
 from bot.utils.ng_word_manager import NGWordManager
 from bot.utils.retry import RetryableError, retry_async
 from bot.utils.text_cleaner import clean_note_text
@@ -196,6 +197,14 @@ class WordcloudManager:
     async def execute_wordcloud(self) -> None:
         """ワードクラウドを生成・投稿する。"""
         if not self._wc_config.enabled:
+            return
+
+        # 夜間モード判定
+        night = self._config.posting.night_mode
+        if is_night_mode(
+            night.start_hour, night.end_hour, night.enabled, self._config.bot.timezone
+        ):
+            logger.debug("夜間モード中のためワードクラウド投稿をスキップします")
             return
 
         await self._do_wordcloud_post()
