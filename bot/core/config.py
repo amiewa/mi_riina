@@ -104,6 +104,8 @@ class AutoDeleteItemConfig(BaseModel):
 class AutoDeleteConfig(BaseModel):
     """自動削除設定"""
 
+    delete_interval_seconds: float = Field(default=1.5, ge=0.0)
+    delete_max_retries: int = Field(default=3, ge=0)
     random_post: AutoDeleteItemConfig = AutoDeleteItemConfig(
         enabled=True, after_hours=72
     )
@@ -172,6 +174,7 @@ class HoroscopeConfig(BaseModel):
     enabled: bool = False
     mode: Literal["no_ai", "ai"] = "no_ai"
     post_hour: int = Field(default=7, ge=0, le=23)
+    ai_max_output_tokens: int = Field(default=2048, ge=256)
 
 
 class WordcloudConfig(BaseModel):

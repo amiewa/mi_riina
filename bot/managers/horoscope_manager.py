@@ -39,8 +39,8 @@ ZODIAC_SIGNS = [
     ("♓", "うお座"),
 ]
 
-# 最長星座名の文字数（「みずがめ座」= 5文字）に合わせてパディング
-MAX_NAME_LEN = 5
+# 最長星座名の文字数（「みずがめ座」= 5文字）に1文字分の余白を加えてパディング
+MAX_NAME_LEN = 6
 
 # スコア用絵文字
 SCORE_EMOJIS = {
@@ -282,6 +282,7 @@ class HoroscopeManager:
                 text = await self._ai_client.generate(
                     user_prompt=prompt,
                     system_prompt=self._character_prompt,
+                    max_tokens=self._config.posting.horoscope.ai_max_output_tokens,
                 )
 
                 # バリデーション: 12星座が全て含まれているか

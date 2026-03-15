@@ -520,7 +520,9 @@ async def main() -> None:
                 "cron",
                 hour=del_h,
                 minute=del_m,
-                args=[db, misskey],
+                args=[db, misskey,
+                      config.posting.auto_delete.delete_interval_seconds,
+                      config.posting.auto_delete.delete_max_retries],
                 misfire_grace_time=300,
             )
 
@@ -611,20 +613,37 @@ async def main() -> None:
     logger.info("Bot を停止しました")
 
 
-async def _execute_auto_delete(db: Database, misskey: MisskeyClient) -> None:
-    """自己削除を実行する。"""
-    # レートリミット対策: 削除間隔（秒）
-    _DELETE_INTERVAL = 1.5
+async def _execute_auto_delete(
+    db: Database,
+    misskey: MisskeyClient,
+    interval_seconds: float,
+    max_retries: int,
+) -> None:
+    """自動削除を実行する。"""
+    from bot.utils.retry import RetryableError, retry_async
 
     posts = await db.get_posts_to_delete()
     for post in posts:
         try:
             if post["note_id"]:
-                await misskey.delete_note(post["note_id"])
+                # クロージャ問題を避けるためローカル変数に束縛
+                note_id = post["note_id"]
+                await retry_async(
+                    lambda: misskey.delete_note(note_id),
+                    retries=max_retries,
+                    base_delay=interval_seconds,
+                    retry_on=(RetryableError,),
+                )
 
             # ワードクラウドのドライブファイル削除
             if post.get("drive_file_id"):
-                await misskey.delete_file(post["drive_file_id"])
+                drive_file_id = post["drive_file_id"]
+                await retry_async(
+                    lambda: misskey.delete_file(drive_file_id),
+                    retries=max_retries,
+                    base_delay=interval_seconds,
+                    retry_on=(RetryableError,),
+                )
 
             await db.mark_post_deleted(post["id"])
             logger.info(
@@ -639,7 +658,7 @@ async def _execute_auto_delete(db: Database, misskey: MisskeyClient) -> None:
                 str(e),
             )
         # レートリミット対策: 次の削除まで待機
-        await asyncio.sleep(_DELETE_INTERVAL)
+        await asyncio.sleep(interval_seconds)
 
 
 async def _execute_backup(
