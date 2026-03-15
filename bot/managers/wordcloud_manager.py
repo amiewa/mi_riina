@@ -17,6 +17,7 @@ from bot.core.config import AppConfig
 from bot.core.database import Database
 from bot.core.misskey_client import MisskeyClient
 from bot.core.models import NoteEvent
+from bot.utils.night_mode import is_night_mode
 from bot.utils.ng_word_manager import NGWordManager
 from bot.utils.retry import RetryableError, retry_async
 from bot.utils.text_cleaner import clean_note_text
@@ -41,6 +42,23 @@ FONT_URL = (
 )
 FONT_FILENAME = "MPLUSRounded1c-Regular.ttf"
 DEFAULT_FONT_DIR = "data/fonts"
+ 
+# システム用語など、ワードクラウドから除外すべき単語
+SYSTEM_STOP_WORDS = {
+    "plain",
+    "center",
+    "from",
+    "color",
+    "scale",
+    "current",
+    "showModal",
+    "dialog",
+    "button",
+    "onClick",
+    "true",
+    "false",
+    "null",
+}
 
 
 class WordcloudManager:
@@ -70,6 +88,9 @@ class WordcloudManager:
 
         # フォントパス（初期化時に解決）
         self._font_path: str | None = None
+ 
+        # 除外キーワードセットの構築
+        self._exclude_keywords = set(self._wc_config.exclude_keywords) | SYSTEM_STOP_WORDS
 
     async def initialize(self) -> None:
         """初期化処理: フォントの確保。"""
@@ -142,10 +163,10 @@ class WordcloudManager:
         # NGワードフィルタリングと長さ制限（min_keyword_length以上の単語を抽出）
         valid_keywords = []
         for kw in keywords:
-            if len(
-                kw
-            ) >= self._wc_config.min_keyword_length and not self._ng_word_manager.contains_ng_word(
-                kw
+            if (
+                len(kw) >= self._wc_config.min_keyword_length
+                and kw not in self._exclude_keywords
+                and not self._ng_word_manager.contains_ng_word(kw)
             ):
                 valid_keywords.append(kw)
 
@@ -176,6 +197,14 @@ class WordcloudManager:
     async def execute_wordcloud(self) -> None:
         """ワードクラウドを生成・投稿する。"""
         if not self._wc_config.enabled:
+            return
+
+        # 夜間モード判定
+        night = self._config.posting.night_mode
+        if is_night_mode(
+            night.start_hour, night.end_hour, night.enabled, self._config.bot.timezone
+        ):
+            logger.debug("夜間モード中のためワードクラウド投稿をスキップします")
             return
 
         await self._do_wordcloud_post()

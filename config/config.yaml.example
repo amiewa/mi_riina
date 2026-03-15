@@ -121,6 +121,7 @@ posting:
     background_color: "white"
     colormap: "coolwarm"        # matplotlib colormap 名（任意の colormap 文字列を指定可能）
     # font_path: ""             # 省略時は起動時自動ダウンロードした M PLUS Rounded 1c を使用
+    exclude_keywords: []      # 除外したい特定の単語がある場合はリストで指定（例: ["単語1", "単語2"]）
 
   # アンケート設定
   poll:

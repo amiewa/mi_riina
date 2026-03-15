@@ -78,3 +78,27 @@ class TestCleanNoteText:
         assert "https" not in result
         assert ":emoji:" not in result
         assert "#tag" not in result
+ 
+    def test_remove_mfm_with_dots(self) -> None:
+        """ドットや属性を含む MFM を除去する"""
+        assert (
+            clean_note_text("テスト $[bg.color=red テキスト] 終わり")
+            == "テスト テキスト 終わり"
+        )
+ 
+    def test_remove_empty_mfm(self) -> None:
+        """コンテンツなしの MFM を除去する"""
+        assert clean_note_text("テスト $[x2] 終わり") == "テスト  終わり"
+        assert clean_note_text("テスト $[font.serif ] 終わり").strip() == "テスト  終わり"
+ 
+    def test_remove_code_block(self) -> None:
+        """コードブロックを除去する"""
+        text = "Hello\n```\ndef func():\n    pass\n```\nWorld"
+        result = clean_note_text(text)
+        assert "Hello" in result
+        assert "World" in result
+        assert "func" not in result
+ 
+    def test_remove_inline_code(self) -> None:
+        """インラインコードを除去する"""
+        assert clean_note_text("Here is `code`.") == "Here is ."

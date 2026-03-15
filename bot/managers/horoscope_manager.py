@@ -16,6 +16,7 @@ from bot.core.ai_client import AIClientBase
 from bot.core.config import AppConfig
 from bot.core.database import Database
 from bot.core.misskey_client import MisskeyClient
+from bot.utils.night_mode import is_night_mode
 from bot.utils.ng_word_manager import NGWordManager
 
 logger = logging.getLogger(__name__)
@@ -130,6 +131,14 @@ class HoroscopeManager:
         horoscope_config = self._config.posting.horoscope
 
         if not horoscope_config.enabled:
+            return
+
+        # 夜間モード判定
+        night = self._config.posting.night_mode
+        if is_night_mode(
+            night.start_hour, night.end_hour, night.enabled, self._config.bot.timezone
+        ):
+            logger.debug("夜間モード中のため星座占いをスキップします")
             return
 
         await self._do_horoscope_post()
