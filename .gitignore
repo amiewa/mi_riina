@@ -28,12 +28,13 @@ config/serif/*.yaml
 data/
 logs/
 
-# Tasks (ドキュメント)
+# Agent
+.agents/
+.claude/
 tasks/
-
-# AI設定
 GEMINI.md
 CLAUDE.md
+AGENTS.md
 
 # IDE
 .vscode/
