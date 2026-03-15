@@ -18,7 +18,8 @@ RUN type -p curl >/dev/null || (apt-get update && apt-get install curl -y) \
 
 # Install Node.js
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs
+    && apt-get install -y nodejs \
+    && npm install -g @anthropic-ai/claude-code@latest
 
 # Setup for SudachiPy
 RUN pip install --upgrade pip
