@@ -613,6 +613,9 @@ async def main() -> None:
 
 async def _execute_auto_delete(db: Database, misskey: MisskeyClient) -> None:
     """自己削除を実行する。"""
+    # レートリミット対策: 削除間隔（秒）
+    _DELETE_INTERVAL = 1.5
+
     posts = await db.get_posts_to_delete()
     for post in posts:
         try:
@@ -635,6 +638,8 @@ async def _execute_auto_delete(db: Database, misskey: MisskeyClient) -> None:
                 post["note_id"],
                 str(e),
             )
+        # レートリミット対策: 次の削除まで待機
+        await asyncio.sleep(_DELETE_INTERVAL)
 
 
 async def _execute_backup(
