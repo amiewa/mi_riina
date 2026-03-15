@@ -57,7 +57,7 @@ posting:
   # 自動削除設定（post_type 別）
   # 削除実行は maintenance.auto_delete_time に行う
   auto_delete:
-    delete_interval_seconds: 1.5   # 削除処理ごとのウェイト（秒、レート制限回避用）
+    delete_interval_seconds: 2   # 削除処理ごとのウェイト（秒、レート制限回避用）
     delete_max_retries: 3          # 削除失敗時の最大リトライ回数
     random_post:
       enabled: true
