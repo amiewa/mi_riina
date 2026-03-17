@@ -1,7 +1,7 @@
 """bot 自身ノート除外テスト
 
 reply / reaction の各経路で bot 自身のノートを弾けることを検証する。
-（wordcloud は StreamingManager 経由でのフィルタリングを filter_notes で対応済み）
+wordcloud 経路のテストは tests/test_wordcloud_bot_exclusion.py を参照。
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch

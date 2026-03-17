@@ -115,7 +115,13 @@ class WordcloudManager:
             return
 
         # bot 自身のノートはスキップ
-        if event.user_id == self._misskey.bot_user_id:
+        bot_user_id = self._misskey.bot_user_id
+        if not bot_user_id:
+            # 初期化未完了の場合はすべてスキップ（安全側に倒す）
+            logger.warning("bot_user_id が未設定のため on_note をスキップします")
+            return
+        if event.user_id == bot_user_id:
+            logger.debug("bot 自身のノートをスキップしました（user_id=%s）", event.user_id)
             return
 
         # visibility フィルタ: followers / specified は除外
