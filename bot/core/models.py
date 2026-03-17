@@ -24,6 +24,7 @@ class NoteEvent:
     has_poll: bool  # 投票付きノートか
     file_ids: list[str] = field(default_factory=list)
     channel: Literal["home", "local", "social", "global", "main"] = "home"
+    is_bot: bool = False  # Misskey の user.isBot フラグ
     raw: dict = field(default_factory=dict, repr=False)
 
 

@@ -162,3 +162,97 @@ class TestWordcloudManagerBotSelfExclusion:
             await manager.on_note(note)
 
         manager._db.stock_words.assert_not_called()
+
+
+class TestWordcloudManagerOtherBotExclusion:
+    """WordcloudManager.on_note での他 bot ユーザーノート除外テスト（isBot フラグ）"""
+
+    @pytest.mark.asyncio
+    async def test_other_bot_note_not_stocked(self) -> None:
+        """isBot=True のユーザーのノートはワードストックに追加されない"""
+        manager = _make_wordcloud_manager(bot_user_id=BOT_USER_ID)
+
+        # isBot=True の他 bot ユーザーのノート
+        event = NoteEvent(
+            note_id="bot_note_1",
+            user_id="other_bot_user",
+            username="otherbot",
+            text="他の bot の投稿テスト",
+            cw=None,
+            visibility="public",
+            reply_id=None,
+            renote_id=None,
+            has_poll=False,
+            channel="home",
+            is_bot=True,
+        )
+        await manager.on_note(event)
+
+        manager._db.stock_words.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_normal_user_note_is_stocked(self) -> None:
+        """isBot=False の通常ユーザーのノートはワードストックに追加される"""
+        manager = _make_wordcloud_manager(bot_user_id=BOT_USER_ID)
+
+        # isBot=False の通常ユーザーのノート
+        event = NoteEvent(
+            note_id="user_note_1",
+            user_id=OTHER_USER_ID,
+            username="normaluser",
+            text="通常ユーザーの投稿テスト",
+            cw=None,
+            visibility="public",
+            reply_id=None,
+            renote_id=None,
+            has_poll=False,
+            channel="home",
+            is_bot=False,
+        )
+        await manager.on_note(event)
+
+        manager._db.stock_words.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_multiple_other_bots_all_excluded(self) -> None:
+        """複数の他 bot ユーザーのノートがすべて除外される"""
+        manager = _make_wordcloud_manager(bot_user_id=BOT_USER_ID)
+
+        other_bot_notes = [
+            NoteEvent(
+                note_id=f"bot_note_{i}",
+                user_id=f"other_bot_{i}",
+                username=f"bot{i}",
+                text=f"他bot投稿 {i}",
+                cw=None,
+                visibility="public",
+                reply_id=None,
+                renote_id=None,
+                has_poll=False,
+                channel="home",
+                is_bot=True,
+            )
+            for i in range(3)
+        ]
+        for note in other_bot_notes:
+            await manager.on_note(note)
+
+        manager._db.stock_words.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_is_bot_flag_default_false(self) -> None:
+        """is_bot フラグのデフォルト値が False であることを確認する"""
+        from bot.core.models import NoteEvent
+
+        event = NoteEvent(
+            note_id="note1",
+            user_id="user1",
+            username="user",
+            text="テスト",
+            cw=None,
+            visibility="public",
+            reply_id=None,
+            renote_id=None,
+            has_poll=False,
+        )
+        assert event.is_bot is False

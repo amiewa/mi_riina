@@ -36,6 +36,7 @@ def dict_to_note_event(n: dict) -> NoteEvent:
         renote_id=n.get("renoteId"),
         has_poll=n.get("poll") is not None,
         file_ids=[f["id"] for f in n.get("files", [])],
+        is_bot=n.get("user", {}).get("isBot", False),
     )
 
 

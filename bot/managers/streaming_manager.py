@@ -231,6 +231,7 @@ class StreamingManager:
             has_poll=body.get("poll") is not None,
             file_ids=[f["id"] for f in body.get("files", [])],
             channel=channel,
+            is_bot=body.get("user", {}).get("isBot", False),
             raw=body,
         )
 

@@ -124,6 +124,11 @@ class WordcloudManager:
             logger.debug("bot 自身のノートをスキップしました（user_id=%s）", event.user_id)
             return
 
+        # 他の bot ユーザーのノートはスキップ（Misskey の isBot フラグを使用）
+        if event.is_bot:
+            logger.debug("bot ユーザーのノートをスキップしました（user_id=%s）", event.user_id)
+            return
+
         # visibility フィルタ: followers / specified は除外
         if event.visibility in ("followers", "specified"):
             return
