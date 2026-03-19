@@ -35,6 +35,16 @@
    docker compose up -d
    ```
 
+## `/admin` コマンドの使い方
+Botの管理者は、Botへのメンションまたはリプライで以下のコマンドを送信することで、ステータス確認や強制投稿などの管理操作が行えます。
+※使用するには `config.yaml` の `admin.usernames` に使用するアカウントのユーザー名が設定されている必要があります。
+
+- `/admin status`: Botの現在のステータス（API利用状況や各機能のオン/オフ設定など）を表示します。
+- `/admin post <post_type>`: 指定したタイプの投稿を強制的に実行します。
+  - 対応しているタイプ: `random`, `scheduled`, `weekday`, `timeline`, `horoscope`, `wordcloud`, `poll`, `event`
+- `/admin nickname <username>`: 指定したユーザーのBot内でのニックネーム登録情報を確認します。
+
+
 
 ## 参考にしたMisskey Bot
 本プロジェクトは、以下のプロジェクトを参考にさせていただきました。深く感謝申し上げます。
