@@ -18,7 +18,7 @@ ai:
   timeout_seconds: 30          # AI API呼び出しのタイムアウト（全プロバイダ共通）
 
   gemini:
-    model: "gemini-2.5-flash"
+    model: "gemini-3.1-flash-lite-preview"
     max_output_tokens: 1024
     temperature: 1.0
 
@@ -64,10 +64,10 @@ posting:
       after_hours: 72
     scheduled_posts:
       enabled: false
-      after_hours: 168          # 1週間
+      after_hours: 72
     timeline_post:
       enabled: false
-      after_hours: 72
+      after_hours: 48
     horoscope:
       enabled: false
       after_hours: 48
@@ -170,11 +170,12 @@ reply:
     max_per_user_per_hour: 3
   ai_concurrency: 2             # AI呼び出しの同時実行数上限
   nickname:
-    enabled: false
+    enabled: true
     max_length: 20
     success_template: "{nickname}って呼べばいいんだね！ わかった〜"
     ng_word_response: "ん〜、その名前はちょっと… 別のにしてほしいな〜"
     reset_response: "わかった、元の呼び方に戻すね〜"
+  #「～って呼んで」でニックネーム登録、「呼び名リセット」でニックネーム削除
 
 # NGワード
 ng_words:
@@ -192,7 +193,7 @@ affinity:
   enabled: false
   rank2_threshold: 5
   rank3_threshold: 20
-  admin_override:
+  admin_override: # 管理者のみ親密度ランクを強制的に設定
     enabled: false
     rank: 3
 
