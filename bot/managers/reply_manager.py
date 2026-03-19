@@ -94,11 +94,13 @@ class ReplyManager:
         # ニックネームパターンチェック
         if self._config.reply.nickname.enabled:
             if _NICKNAME_RESET_KEYWORD in cleaned_text:
-                await self._handle_nickname_reset(event)
+                await self._handle_nickname_reset(event, execution_key)
                 return
             match = _NICKNAME_REGISTER_RE.search(cleaned_text)
             if match:
-                await self._handle_nickname_registration(event, match.group(1))
+                await self._handle_nickname_registration(
+                    event, match.group(1), execution_key
+                )
                 return
 
         # 空文チェック
@@ -218,7 +220,7 @@ class ReplyManager:
         return None
 
     async def _handle_nickname_registration(
-        self, event: MentionEvent, nickname: str
+        self, event: MentionEvent, nickname: str, execution_key: str
     ) -> None:
         """ニックネーム登録を処理する。"""
         nickname = nickname.strip()
@@ -247,12 +249,28 @@ class ReplyManager:
         # DB に登録
         await self._db.upsert_nickname(event.user_id, nickname)
         text = nick_config.success_template.format(nickname=nickname)
+
+        # 二重送信防止チェック
         try:
-            await self._misskey.create_note(
+            post_id = await self._db.insert_post(
+                post_type="reply",
+                execution_key=execution_key,
+                content=text[:200],
+            )
+        except sqlite3.IntegrityError:
+            logger.info(
+                "ニックネーム登録応答は既に送信済みです（execution_key=%s）",
+                execution_key,
+            )
+            return
+
+        try:
+            note_id = await self._misskey.create_note(
                 text=text,
                 visibility=event.visibility,
                 reply_id=event.note_id,
             )
+            await self._db.update_post_note_id(post_id, note_id)
             logger.info(
                 "ニックネームを登録しました（user_id=%s, nickname=%s）",
                 event.user_id,
@@ -260,20 +278,38 @@ class ReplyManager:
             )
         except Exception as e:
             logger.error("ニックネーム登録応答の送信に失敗しました: %s", str(e))
+            await self._db.delete_post_by_id(post_id)
 
-    async def _handle_nickname_reset(self, event: MentionEvent) -> None:
+    async def _handle_nickname_reset(self, event: MentionEvent, execution_key: str) -> None:
         """ニックネーム削除を処理する。"""
         await self._db.delete_nickname(event.user_id)
         text = self._config.reply.nickname.reset_response
+
+        # 二重送信防止チェック
         try:
-            await self._misskey.create_note(
+            post_id = await self._db.insert_post(
+                post_type="reply",
+                execution_key=execution_key,
+                content=text[:200],
+            )
+        except sqlite3.IntegrityError:
+            logger.info(
+                "ニックネームリセット応答は既に送信済みです（execution_key=%s）",
+                execution_key,
+            )
+            return
+
+        try:
+            note_id = await self._misskey.create_note(
                 text=text,
                 visibility=event.visibility,
                 reply_id=event.note_id,
             )
+            await self._db.update_post_note_id(post_id, note_id)
             logger.info(
                 "ニックネームをリセットしました（user_id=%s）",
                 event.user_id,
             )
         except Exception as e:
             logger.error("ニックネームリセット応答の送信に失敗しました: %s", str(e))
+            await self._db.delete_post_by_id(post_id)
