@@ -58,6 +58,10 @@ SYSTEM_STOP_WORDS = {
     "true",
     "false",
     "null",
+    "object",
+    "request",
+    "command",
+    "style",
 }
 
 
