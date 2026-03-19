@@ -118,6 +118,15 @@ class Database:
             )
         """)
 
+        # ニックネーム登録
+        await self._db.execute("""
+            CREATE TABLE IF NOT EXISTS nicknames (
+                user_id       TEXT PRIMARY KEY,
+                nickname      TEXT NOT NULL,
+                registered_at TEXT NOT NULL
+            )
+        """)
+
         # 既存DB向けマイグレーション: provider カラム追加
         await self._migrate_add_provider_column()
 
@@ -451,6 +460,39 @@ class Database:
         await self._db.execute(
             "INSERT INTO reply_rate_limits (user_id, replied_at) VALUES (?, ?)",
             (user_id, now),
+        )
+        await self._db.commit()
+
+    # ========== nicknames 関連 ==========
+
+    async def upsert_nickname(self, user_id: str, nickname: str) -> None:
+        """ニックネームを登録（または更新）する。"""
+        assert self._db is not None
+        now = datetime.now(JST).isoformat()
+        await self._db.execute(
+            """INSERT INTO nicknames (user_id, nickname, registered_at)
+               VALUES (?, ?, ?)
+               ON CONFLICT(user_id) DO UPDATE SET
+                   nickname = excluded.nickname,
+                   registered_at = excluded.registered_at""",
+            (user_id, nickname, now),
+        )
+        await self._db.commit()
+
+    async def get_nickname(self, user_id: str) -> str | None:
+        """ニックネームを取得する。未登録の場合は None を返す。"""
+        row = await self.fetchone(
+            "SELECT nickname FROM nicknames WHERE user_id = ?",
+            (user_id,),
+        )
+        return row["nickname"] if row else None
+
+    async def delete_nickname(self, user_id: str) -> None:
+        """ニックネームを削除する。"""
+        assert self._db is not None
+        await self._db.execute(
+            "DELETE FROM nicknames WHERE user_id = ?",
+            (user_id,),
         )
         await self._db.commit()
 

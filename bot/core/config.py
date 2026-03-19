@@ -281,6 +281,16 @@ class RateLimitConfig(BaseModel):
     max_per_user_per_hour: int = Field(default=3, ge=1)
 
 
+class NicknameConfig(BaseModel):
+    """ニックネーム登録設定"""
+
+    enabled: bool = False
+    max_length: int = Field(default=20, ge=1, le=50)
+    success_template: str = "{nickname}って呼べばいいんだね！ わかった〜"
+    ng_word_response: str = "ん〜、その名前はちょっと… 別のにしてほしいな〜"
+    reset_response: str = "わかった、元の呼び方に戻すね〜"
+
+
 class ReplyConfig(BaseModel):
     """リプライ設定"""
 
@@ -288,6 +298,7 @@ class ReplyConfig(BaseModel):
     mutual_only: bool = True
     rate_limit: RateLimitConfig = RateLimitConfig()
     ai_concurrency: int = Field(default=2, ge=1)
+    nickname: NicknameConfig = NicknameConfig()
 
 
 class NGWordsConfig(BaseModel):
@@ -299,12 +310,20 @@ class NGWordsConfig(BaseModel):
     cache_file: str = "data/ng_words_cache.txt"
 
 
+class AffinityAdminOverrideConfig(BaseModel):
+    """管理者の親密度オーバーライド設定"""
+
+    enabled: bool = False
+    rank: int = Field(default=3, ge=1, le=3)
+
+
 class AffinityConfig(BaseModel):
     """親密度設定（Phase 2）"""
 
     enabled: bool = False
     rank2_threshold: int = Field(default=5, ge=1)
     rank3_threshold: int = Field(default=20, ge=1)
+    admin_override: AffinityAdminOverrideConfig = AffinityAdminOverrideConfig()
 
 
 class MaintenanceConfig(BaseModel):

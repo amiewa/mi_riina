@@ -357,6 +357,11 @@ async def main() -> None:
         )
         await admin_manager.initialize()
 
+        # 管理者IDを親密度マネージャーに注入
+        affinity_manager.set_admin_user_ids(
+            set(admin_manager._admin_user_ids)
+        )
+
         async def on_mention_dispatch(event: MentionEvent) -> None:
             """メンションイベントを処理順序付きでディスパッチする。"""
             if await admin_manager.try_handle(event):

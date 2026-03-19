@@ -119,6 +119,11 @@ class AdminManager:
                     await self._reply_error(event.note_id)
                 else:
                     await self._handle_post(event.note_id, parts[2])
+            elif subcommand == "nickname":
+                if len(parts) < 3:
+                    await self._reply_error(event.note_id)
+                else:
+                    await self._handle_nickname(event.note_id, parts[2])
             else:
                 await self._reply_error(event.note_id)
         except Exception as e:
@@ -229,6 +234,31 @@ class AdminManager:
             reply_id=reply_id,
         )
         logger.info("statusを応答しました")
+
+    async def _handle_nickname(self, reply_id: str, username: str) -> None:
+        """/admin nickname <username> の処理"""
+        user = await self._misskey.get_user_by_username(username)
+        if not user:
+            await self._misskey.create_note(
+                text=f"ユーザー @{username} が見つかりません",
+                visibility="specified",
+                reply_id=reply_id,
+            )
+            return
+
+        user_id = user["id"]
+        nickname = await self._db.get_nickname(user_id)
+        if nickname:
+            text = f"@{username} のニックネーム: {nickname}"
+        else:
+            text = f"@{username} のニックネームは未登録です"
+
+        await self._misskey.create_note(
+            text=text,
+            visibility="specified",
+            reply_id=reply_id,
+        )
+        logger.info("ニックネーム確認を応答しました: %s", username)
 
     async def _handle_post(self, reply_id: str, post_type: str) -> None:
         """/admin post の処理"""

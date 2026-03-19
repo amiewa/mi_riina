@@ -33,6 +33,11 @@ class AffinityManager:
     def __init__(self, config: AppConfig, db: Database) -> None:
         self._config = config
         self._db = db
+        self._admin_user_ids: set[str] = set()
+
+    def set_admin_user_ids(self, ids: set[str]) -> None:
+        """管理者ユーザーIDを設定する。"""
+        self._admin_user_ids = ids
 
     @property
     def enabled(self) -> bool:
@@ -94,6 +99,10 @@ class AffinityManager:
         """
         if not self.enabled:
             return 1
+        # 管理者オーバーライド判定
+        override = self._config.affinity.admin_override
+        if override.enabled and user_id in self._admin_user_ids:
+            return override.rank
         row = await self._db.fetchone(
             "SELECT rank FROM affinities WHERE user_id = ?",
             (user_id,),

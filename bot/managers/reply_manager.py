@@ -7,6 +7,7 @@ Phase 1: 単発リプライ（メンション1件のみ、会話文脈なし）�
 import asyncio
 import logging
 import random
+import re
 import sqlite3
 from pathlib import Path
 
@@ -16,12 +17,16 @@ from bot.core.database import Database
 from bot.core.misskey_client import MisskeyClient
 from bot.core.models import MentionEvent
 from bot.utils.ng_word_manager import NGWordManager
-from bot.utils.night_mode import is_night_mode
 from bot.utils.rate_limiter import RateLimiter
 from bot.utils.serif_loader import SerifLoader
 from bot.utils.text_cleaner import clean_note_text
 
 logger = logging.getLogger(__name__)
+
+# ニックネーム登録パターン
+_NICKNAME_REGISTER_RE = re.compile(r"(.+?)って呼んで")
+# ニックネーム削除パターン
+_NICKNAME_RESET_KEYWORD = "呼び名リセット"
 
 
 class ReplyManager:
@@ -78,14 +83,6 @@ class ReplyManager:
                 )
                 return
 
-        # 夜間モード判定
-        night = self._config.posting.night_mode
-        if is_night_mode(
-            night.start_hour, night.end_hour, night.enabled, self._config.bot.timezone
-        ):
-            logger.debug("夜間モード中のためリプライをスキップします")
-            return
-
         # レート制限チェック
         if await self._rate_limiter.is_limited(event.user_id):
             await self._send_fallback(event, "rate_limited")
@@ -93,6 +90,16 @@ class ReplyManager:
 
         # テキストクリーニング
         cleaned_text = clean_note_text(event.text)
+
+        # ニックネームパターンチェック
+        if self._config.reply.nickname.enabled:
+            if _NICKNAME_RESET_KEYWORD in cleaned_text:
+                await self._handle_nickname_reset(event)
+                return
+            match = _NICKNAME_REGISTER_RE.search(cleaned_text)
+            if match:
+                await self._handle_nickname_registration(event, match.group(1))
+                return
 
         # 空文チェック
         if not cleaned_text:
@@ -120,6 +127,13 @@ class ReplyManager:
                     )
                     if affinity_prompt:
                         system_prompt = f"{system_prompt}\n\n{affinity_prompt}"
+
+                # ニックネーム/表示名をプロンプトに反映
+                display_name = await self._resolve_display_name(event)
+                if display_name:
+                    system_prompt = (
+                        f"{system_prompt}\n\n相手の呼び名は{display_name}"
+                    )
 
                 response = await self._ai.generate(
                     user_prompt=cleaned_text,
@@ -192,3 +206,74 @@ class ReplyManager:
             )
         except Exception as e:
             logger.error("フォールバック台詞の送信に失敗しました: %s", str(e))
+
+    async def _resolve_display_name(self, event: MentionEvent) -> str | None:
+        """ニックネームまたは表示名を解決する。"""
+        nickname = await self._db.get_nickname(event.user_id)
+        if nickname:
+            return nickname
+        name = event.raw.get("user", {}).get("name")
+        if name and name.strip():
+            return name.strip()
+        return None
+
+    async def _handle_nickname_registration(
+        self, event: MentionEvent, nickname: str
+    ) -> None:
+        """ニックネーム登録を処理する。"""
+        nickname = nickname.strip()
+        nick_config = self._config.reply.nickname
+
+        # 空文字チェック
+        if not nickname:
+            return
+
+        # 長さチェック
+        if len(nickname) > nick_config.max_length:
+            nickname = nickname[: nick_config.max_length]
+
+        # NGワードチェック
+        if self._ng_word.contains_ng_word(nickname):
+            try:
+                await self._misskey.create_note(
+                    text=nick_config.ng_word_response,
+                    visibility=event.visibility,
+                    reply_id=event.note_id,
+                )
+            except Exception as e:
+                logger.error("ニックネームNG応答の送信に失敗しました: %s", str(e))
+            return
+
+        # DB に登録
+        await self._db.upsert_nickname(event.user_id, nickname)
+        text = nick_config.success_template.format(nickname=nickname)
+        try:
+            await self._misskey.create_note(
+                text=text,
+                visibility=event.visibility,
+                reply_id=event.note_id,
+            )
+            logger.info(
+                "ニックネームを登録しました（user_id=%s, nickname=%s）",
+                event.user_id,
+                nickname,
+            )
+        except Exception as e:
+            logger.error("ニックネーム登録応答の送信に失敗しました: %s", str(e))
+
+    async def _handle_nickname_reset(self, event: MentionEvent) -> None:
+        """ニックネーム削除を処理する。"""
+        await self._db.delete_nickname(event.user_id)
+        text = self._config.reply.nickname.reset_response
+        try:
+            await self._misskey.create_note(
+                text=text,
+                visibility=event.visibility,
+                reply_id=event.note_id,
+            )
+            logger.info(
+                "ニックネームをリセットしました（user_id=%s）",
+                event.user_id,
+            )
+        except Exception as e:
+            logger.error("ニックネームリセット応答の送信に失敗しました: %s", str(e))

@@ -169,6 +169,12 @@ reply:
   rate_limit:
     max_per_user_per_hour: 3
   ai_concurrency: 2             # AI呼び出しの同時実行数上限
+  nickname:
+    enabled: false
+    max_length: 20
+    success_template: "{nickname}って呼べばいいんだね！ わかった〜"
+    ng_word_response: "ん〜、その名前はちょっと… 別のにしてほしいな〜"
+    reset_response: "わかった、元の呼び方に戻すね〜"
 
 # NGワード
 ng_words:
@@ -186,6 +192,9 @@ affinity:
   enabled: false
   rank2_threshold: 5
   rank3_threshold: 20
+  admin_override:
+    enabled: false
+    rank: 3
 
 # メンテナンス
 maintenance:

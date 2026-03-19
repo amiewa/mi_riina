@@ -137,6 +137,7 @@ class TestReplyManagerBotSelfExclusion:
         mock.insert_post = AsyncMock(return_value=1)
         mock.update_post_note_id = AsyncMock()
         mock.delete_post_by_id = AsyncMock()
+        mock.get_nickname = AsyncMock(return_value=None)
         return mock
 
     @pytest.fixture
@@ -180,6 +181,7 @@ class TestReplyManagerBotSelfExclusion:
         config.reply.enabled = True
         config.reply.mutual_only = False  # 簡略化
         config.reply.ai_concurrency = 1
+        config.reply.nickname.enabled = False
         config.posting.night_mode.enabled = False
         config.posting.night_mode.start_hour = 23
         config.posting.night_mode.end_hour = 5

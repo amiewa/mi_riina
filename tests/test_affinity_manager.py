@@ -15,6 +15,8 @@ def make_affinity_config(
     enabled: bool = True,
     rank2_threshold: int = 5,
     rank3_threshold: int = 20,
+    admin_override_enabled: bool = False,
+    admin_override_rank: int = 3,
 ) -> AppConfig:
     """テスト用 AppConfig を生成する。"""
     return AppConfig(
@@ -22,6 +24,10 @@ def make_affinity_config(
             enabled=enabled,
             rank2_threshold=rank2_threshold,
             rank3_threshold=rank3_threshold,
+            admin_override=dict(
+                enabled=admin_override_enabled,
+                rank=admin_override_rank,
+            ),
         )
     )
 
@@ -200,3 +206,50 @@ def test_enabled_property_false() -> None:
     config = make_affinity_config(enabled=False)
     manager = AffinityManager(config, None)  # type: ignore
     assert manager.enabled is False
+
+
+# ========== 管理者オーバーライドのテスト ==========
+
+
+@pytest.mark.asyncio
+async def test_admin_override_returns_configured_rank(db: Database) -> None:
+    """管理者オーバーライドが有効な場合、設定されたランクを返すこと。"""
+    config = make_affinity_config(admin_override_enabled=True, admin_override_rank=3)
+    manager = AffinityManager(config, db)
+    manager.set_admin_user_ids({"admin_001"})
+
+    rank = await manager.get_rank("admin_001")
+    assert rank == 3
+
+
+@pytest.mark.asyncio
+async def test_admin_override_rank2(db: Database) -> None:
+    """管理者オーバーライドでランク2を設定できること。"""
+    config = make_affinity_config(admin_override_enabled=True, admin_override_rank=2)
+    manager = AffinityManager(config, db)
+    manager.set_admin_user_ids({"admin_002"})
+
+    rank = await manager.get_rank("admin_002")
+    assert rank == 2
+
+
+@pytest.mark.asyncio
+async def test_admin_override_non_admin_unaffected(db: Database) -> None:
+    """管理者でないユーザーはオーバーライドの影響を受けないこと。"""
+    config = make_affinity_config(admin_override_enabled=True, admin_override_rank=3)
+    manager = AffinityManager(config, db)
+    manager.set_admin_user_ids({"admin_001"})
+
+    rank = await manager.get_rank("regular_user")
+    assert rank == 1
+
+
+@pytest.mark.asyncio
+async def test_admin_override_disabled(db: Database) -> None:
+    """管理者オーバーライドが無効な場合、通常のランク計算が使われること。"""
+    config = make_affinity_config(admin_override_enabled=False, admin_override_rank=3)
+    manager = AffinityManager(config, db)
+    manager.set_admin_user_ids({"admin_001"})
+
+    rank = await manager.get_rank("admin_001")
+    assert rank == 1
