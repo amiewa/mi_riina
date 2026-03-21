@@ -49,6 +49,12 @@ class ReactionManager:
             if not await self._db.is_mutual(event.user_id):
                 return
 
+        # リプライ・メンションはスキップ（通常投稿のみリアクション対象）
+        if event.reply_id is not None:
+            return
+        if event.raw.get("mentions"):
+            return
+
         # テキストがない場合はスキップ
         if not event.text:
             return
