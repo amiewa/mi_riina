@@ -62,6 +62,9 @@ SYSTEM_STOP_WORDS = {
     "request",
     "command",
     "style",
+    "point",
+    "for",
+    "xyz",
 }
 
 
