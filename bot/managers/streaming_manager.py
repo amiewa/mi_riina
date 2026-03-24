@@ -244,6 +244,7 @@ class StreamingManager:
             text=body.get("text"),
             cw=body.get("cw"),
             visibility=body.get("visibility", "public"),
+            reply_id=body.get("replyId"),
             raw=body,
         )
 

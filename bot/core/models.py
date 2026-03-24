@@ -38,6 +38,7 @@ class MentionEvent:
     text: str | None
     cw: str | None
     visibility: str
+    reply_id: str | None = None
     raw: dict = field(default_factory=dict, repr=False)
 
 

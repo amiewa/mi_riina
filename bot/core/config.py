@@ -291,6 +291,14 @@ class NicknameConfig(BaseModel):
     reset_response: str = "わかった、元の呼び方に戻すね〜"
 
 
+class ConversationConfig(BaseModel):
+    """会話文脈設定"""
+
+    enabled: bool = False
+    max_turns: int = Field(default=3, ge=1, le=10)
+    history_max_chars: int = Field(default=2000, ge=500)
+
+
 class ReplyConfig(BaseModel):
     """リプライ設定"""
 
@@ -299,6 +307,7 @@ class ReplyConfig(BaseModel):
     rate_limit: RateLimitConfig = RateLimitConfig()
     ai_concurrency: int = Field(default=2, ge=1)
     nickname: NicknameConfig = NicknameConfig()
+    conversation: ConversationConfig = ConversationConfig()
 
 
 class NGWordsConfig(BaseModel):

@@ -182,6 +182,7 @@ class TestReplyManagerBotSelfExclusion:
         config.reply.mutual_only = False  # 簡略化
         config.reply.ai_concurrency = 1
         config.reply.nickname.enabled = False
+        config.reply.conversation.enabled = False
         config.posting.night_mode.enabled = False
         config.posting.night_mode.start_hour = 23
         config.posting.night_mode.end_hour = 5

@@ -176,6 +176,10 @@ reply:
     ng_word_response: "ん〜、その名前はちょっと… 別のにしてほしいな〜"
     reset_response: "わかった、元の呼び方に戻すね〜"
   #「～って呼んで」でニックネーム登録、「呼び名リセット」でニックネーム削除
+  conversation:                    # 会話文脈（マルチターン）設定
+    enabled: false                 # true で会話文脈を有効化
+    max_turns: 3                   # 最大遡りターン数（ユーザー発言 + bot応答 = 1ターン）
+    history_max_chars: 2000        # 履歴全体の最大文字数
 
 # NGワード
 ng_words:

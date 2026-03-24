@@ -41,14 +41,23 @@ class GeminiClient(AIClientBase):
         system_prompt: str,
         max_tokens: int = 1024,
         temperature: float = 1.0,
+        messages: list[dict] | None = None,
     ) -> str:
         """Gemini API でテキストを生成する。"""
-        # 入力テキストの切り捨て
-        if len(user_prompt) > self._input_max_chars:
-            user_prompt = user_prompt[: self._input_max_chars]
-            logger.debug(
-                "入力テキストを %d 文字に切り捨てました", self._input_max_chars
-            )
+        if messages:
+            # Gemini format: role は "user" / "model"（"assistant" → "model" に変換）
+            contents = []
+            for msg in messages:
+                role = "model" if msg["role"] == "assistant" else "user"
+                contents.append({"role": role, "parts": [{"text": msg["content"]}]})
+        else:
+            # 入力テキストの切り捨て
+            if len(user_prompt) > self._input_max_chars:
+                user_prompt = user_prompt[: self._input_max_chars]
+                logger.debug(
+                    "入力テキストを %d 文字に切り捨てました", self._input_max_chars
+                )
+            contents = user_prompt
 
         config = types.GenerateContentConfig(
             system_instruction=system_prompt,
@@ -61,7 +70,7 @@ class GeminiClient(AIClientBase):
                 asyncio.to_thread(
                     self._client.models.generate_content,
                     model=self._model,
-                    contents=user_prompt,
+                    contents=contents,
                     config=config,
                 ),
                 timeout=self._timeout,
