@@ -239,6 +239,15 @@ class MisskeyClient:
             else:
                 raise
 
+    async def get_note(self, note_id: str) -> dict | None:
+        """ノート1件を取得する。見つからない場合は None。"""
+        try:
+            return await self._request("/api/notes/show", {"noteId": note_id})
+        except MisskeyAPIError as e:
+            if e.status in (400, 404) or (e.code and "NO_SUCH_NOTE" in e.code):
+                return None
+            raise
+
     async def get_me(self) -> dict:
         """bot 自身のユーザー情報を取得する。"""
         result = await self._request("/api/i")

@@ -44,17 +44,24 @@ class OpenRouterClient(AIClientBase):
         system_prompt: str,
         max_tokens: int = 1024,
         temperature: float = 1.0,
+        messages: list[dict] | None = None,
     ) -> str:
         """OpenRouter API でテキストを生成する。"""
         if not self._api_key:
             raise ValueError("OpenRouter API キーが設定されていません")
 
-        # 入力テキストの切り捨て
-        if len(user_prompt) > self._input_max_chars:
-            user_prompt = user_prompt[: self._input_max_chars]
-            logger.debug(
-                "入力テキストを %d 文字に切り捨てました", self._input_max_chars
-            )
+        msg_list: list[dict] = [{"role": "system", "content": system_prompt}]
+
+        if messages:
+            msg_list.extend(messages)
+        else:
+            # 入力テキストの切り捨て
+            if len(user_prompt) > self._input_max_chars:
+                user_prompt = user_prompt[: self._input_max_chars]
+                logger.debug(
+                    "入力テキストを %d 文字に切り捨てました", self._input_max_chars
+                )
+            msg_list.append({"role": "user", "content": user_prompt})
 
         headers = {
             "Authorization": f"Bearer {self._api_key}",
@@ -65,10 +72,7 @@ class OpenRouterClient(AIClientBase):
 
         payload = {
             "model": self._model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
+            "messages": msg_list,
             "max_tokens": max_tokens or self._default_max_tokens,
             "temperature": temperature or self._default_temperature,
             "stream": False,

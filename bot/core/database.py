@@ -127,6 +127,18 @@ class Database:
             )
         """)
 
+        # 会話履歴（マルチターン会話）
+        await self._db.execute("""
+            CREATE TABLE IF NOT EXISTS conversation_history (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id      TEXT NOT NULL,
+                user_message TEXT NOT NULL,
+                bot_response TEXT NOT NULL,
+                note_id      TEXT,
+                created_at   TEXT NOT NULL
+            )
+        """)
+
         # 既存DB向けマイグレーション: provider カラム追加
         await self._migrate_add_provider_column()
 
@@ -191,6 +203,12 @@ class Database:
         await self._db.execute("""
             CREATE INDEX IF NOT EXISTS idx_reactions_time
                 ON reactions (reacted_at)
+        """)
+
+        # 会話履歴の検索（ユーザー × 時刻）
+        await self._db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_conv_history_user_time
+                ON conversation_history (user_id, created_at)
         """)
 
     # ========== 汎用メソッド ==========
@@ -496,6 +514,68 @@ class Database:
         )
         await self._db.commit()
 
+    # ========== conversation_history 関連 ==========
+
+    async def save_conversation_turn(
+        self,
+        user_id: str,
+        user_message: str,
+        bot_response: str,
+        note_id: str | None = None,
+    ) -> None:
+        """会話ターンを保存する。"""
+        assert self._db is not None
+        now = datetime.now(JST).isoformat()
+        # 保存時に文字数上限を適用（先頭 500 文字）
+        await self._db.execute(
+            """INSERT INTO conversation_history
+               (user_id, user_message, bot_response, note_id, created_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            (
+                user_id,
+                user_message[:500],
+                bot_response[:500],
+                note_id,
+                now,
+            ),
+        )
+        await self._db.commit()
+
+    async def get_conversation_history(
+        self,
+        user_id: str,
+        max_turns: int,
+    ) -> list[dict]:
+        """直近N件の会話履歴を取得する（古い順）。
+
+        Returns:
+            [{"user_message": str, "bot_response": str, "created_at": str}, ...]
+        """
+        rows = await self.fetchall(
+            """SELECT user_message, bot_response, created_at
+               FROM conversation_history
+               WHERE user_id = ?
+               ORDER BY created_at DESC
+               LIMIT ?""",
+            (user_id, max_turns),
+        )
+        # DESC で取得したものを古い順に並べ直す
+        rows.reverse()
+        return rows
+
+    async def cleanup_conversation_history(self, days: int) -> int:
+        """指定日数より古い会話履歴を削除する。削除件数を返す。"""
+        assert self._db is not None
+        cutoff = (datetime.now(JST) - timedelta(days=days)).isoformat()
+        cursor = await self._db.execute(
+            "DELETE FROM conversation_history WHERE created_at < ?",
+            (cutoff,),
+        )
+        await self._db.commit()
+        deleted = cursor.rowcount if cursor.rowcount is not None else 0
+        logger.debug("会話履歴を %d 件削除しました", deleted)
+        return deleted
+
     # ========== クリーンアップ ==========
 
     async def cleanup(self, cleanup_days: int) -> None:
@@ -519,6 +599,11 @@ class Database:
         # ワードクラウドストックの残骸
         await self._db.execute(
             "DELETE FROM wordcloud_word_stock WHERE stocked_at < ?", (cutoff,)
+        )
+
+        # 会話履歴の古いデータ
+        await self._db.execute(
+            "DELETE FROM conversation_history WHERE created_at < ?", (cutoff,)
         )
 
         await self._db.commit()
