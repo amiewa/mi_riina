@@ -29,6 +29,7 @@ ai:
     temperature: 0.8
     num_predict: 1024            # max_tokens 相当
 
+  openrouter:
     # api_key は .env の OPENROUTER_API_KEY を参照する
     model: "stepfun/step-3.5-flash:free"
     max_tokens: 1024
