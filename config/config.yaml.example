@@ -37,6 +37,7 @@ ai:
 
   # 機能別プロバイダ上書き（省略または null のフィールドは provider の値を使用）
   # 無料枠のあるプロバイダを占いやアンケートに割り当て、会話用にAPI残量を温存する等の使い分けが可能
+  # horoscopeは"gemini-*-flash-lite"を推奨 gemini-lite モデル以外は出力が安定しません
   function_providers:
     reply: null                 # null = デフォルト (provider) を使用
     horoscope: null
