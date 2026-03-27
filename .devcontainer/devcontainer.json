@@ -3,6 +3,9 @@
 	"build": {
 		"dockerfile": "Dockerfile"
 	},
+	"remoteEnv": {
+		"TZ": "Asia/Tokyo"
+	},
 	"customizations": {
 		"vscode": {
 			"extensions": [
