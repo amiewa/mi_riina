@@ -1,7 +1,7 @@
 services:
-  bot:
+  mi_riina:
     build: .
-    container_name: mi_riina_bot
+    container_name: mi_riina
     restart: unless-stopped
     env_file:
       - .env

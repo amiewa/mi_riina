@@ -5,6 +5,7 @@ set -euo pipefail
 
 FILES=(
     ".env"
+    "compose.yml"
     "config/config.yaml"
     "config/character_prompt.md"
     "config/reaction_rules.yaml"
