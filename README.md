@@ -30,7 +30,8 @@
    ```
 3. `.env` を開き、自身の環境に合わせて `MISSKEY_INSTANCE_URL` や `MISSKEY_API_TOKEN`、各種LLMのAPIキー等を設定します。
 4. `config/config.yaml` を開き、投稿設定やAIプロバイダの設定を調整します。
-5. Docker Compose を用いてコンテナを起動します。
+5. `compose.yml` を開き、必要に応じてコンテナ設定を調整します。
+6. Docker Compose を用いてコンテナを起動します。
    ```bash
    docker compose up -d
    ```
