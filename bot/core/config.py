@@ -195,6 +195,7 @@ class WordcloudConfig(BaseModel):
     colormap: str = "coolwarm"
     font_path: str | None = None
     exclude_keywords: list[str] = []
+    japanese_only: bool = True
 
     @field_validator("colormap")
     @classmethod

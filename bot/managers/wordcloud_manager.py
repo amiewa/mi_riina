@@ -6,6 +6,7 @@ interval_hours ごとにストックを消費してワードクラウド画像�
 
 import asyncio
 import logging
+import re
 from collections import Counter
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -181,12 +182,16 @@ class WordcloudManager:
         # NGワードフィルタリングと長さ制限（min_keyword_length以上の単語を抽出）
         valid_keywords = []
         for kw in keywords:
-            if (
-                len(kw) >= self._wc_config.min_keyword_length
-                and kw not in self._exclude_keywords
-                and not self._ng_word_manager.contains_ng_word(kw)
-            ):
-                valid_keywords.append(kw)
+            if len(kw) < self._wc_config.min_keyword_length:
+                continue
+            if kw in self._exclude_keywords:
+                continue
+            if self._ng_word_manager.contains_ng_word(kw):
+                continue
+            # japanese_only が有効な場合、半角英数を含む単語を除外
+            if self._wc_config.japanese_only and re.search(r"[a-zA-Z0-9]", kw):
+                continue
+            valid_keywords.append(kw)
 
         if not valid_keywords:
             return
