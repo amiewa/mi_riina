@@ -7,6 +7,7 @@ import asyncio
 import json
 import logging
 import random
+import re
 import sqlite3
 from datetime import datetime, timedelta
 
@@ -200,8 +201,11 @@ class PollManager:
                 continue
             kws = await asyncio.to_thread(self._tokenizer.extract_keywords, cleaned)
             for kw in kws:
-                if not self._ng_word.contains_ng_word(kw):
-                    keywords.append(kw)
+                if self._ng_word.contains_ng_word(kw):
+                    continue
+                if poll_config.japanese_only and re.search(r"[a-zA-Z0-9]", kw):
+                    continue
+                keywords.append(kw)
 
         # 不足分は items で補完
         choice_count = poll_config.choice_count

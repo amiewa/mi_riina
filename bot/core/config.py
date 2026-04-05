@@ -159,6 +159,7 @@ class TimelinePostConfig(BaseModel):
     template: str = "{keyword}… りいなも気になるじゃん"
     ai_max_chars: int = Field(default=100, ge=1)
     ai_keyword_count: int = Field(default=3, ge=1)
+    japanese_only: bool = True
 
     @field_validator("template")
     @classmethod
@@ -217,6 +218,7 @@ class PollConfig(BaseModel):
     choice_count: int = Field(default=4, ge=2, le=10)
     timeline_source: Literal["home", "local", "social", "global"] = "home"
     max_notes_fetch: int = Field(default=50, ge=1)
+    japanese_only: bool = True
 
 
 class EventConfig(BaseModel):
