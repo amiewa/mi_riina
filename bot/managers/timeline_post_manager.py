@@ -6,6 +6,7 @@ TLからノートを取得し、キーワードを抽出して投稿する。
 import asyncio
 import logging
 import random
+import re
 from datetime import datetime, timedelta
 
 from zoneinfo import ZoneInfo
@@ -107,12 +108,13 @@ class TimelinePostManager:
             )
 
             for kw in keywords:
-                if len(
-                    kw
-                ) >= tl_config.min_keyword_length and not self._ng_word.contains_ng_word(
-                    kw
-                ):
-                    all_keywords.append(kw)
+                if len(kw) < tl_config.min_keyword_length:
+                    continue
+                if self._ng_word.contains_ng_word(kw):
+                    continue
+                if tl_config.japanese_only and re.search(r"[a-zA-Z0-9]", kw):
+                    continue
+                all_keywords.append(kw)
 
         if not all_keywords:
             logger.debug("TLからキーワードを抽出できませんでした")
