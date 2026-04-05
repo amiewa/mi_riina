@@ -476,7 +476,7 @@ async def main() -> None:
         if event_key and config.posting.event.enabled:
             now = datetime.now(JST)
             # 7〜22時のランダムな時刻
-            if now.hour < 22:
+            if now.hour < 21:
                 event_hour = random.randint(max(7, now.hour + 1), 21)
                 event_minute = random.randint(0, 59)
                 scheduler.add_job(
