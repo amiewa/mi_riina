@@ -475,7 +475,7 @@ async def main() -> None:
         event_key = scheduled_post_manager.get_today_event_key()
         if event_key and config.posting.event.enabled:
             now = datetime.now(JST)
-            # 7〜22時のランダムな時刻
+            # 7〜21時のランダムな時刻
             if now.hour < 21:
                 event_hour = random.randint(max(7, now.hour + 1), 21)
                 event_minute = random.randint(0, 59)
@@ -493,6 +493,11 @@ async def main() -> None:
                     event_key,
                     event_hour,
                     event_minute,
+                )
+            else:
+                logger.info(
+                    "起動時刻が遅いためイベント投稿をスキップしました: %s",
+                    event_key,
                 )
 
         # メンテナンスジョブ
