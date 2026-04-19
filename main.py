@@ -112,8 +112,7 @@ def _check_required_files() -> None:
     if missing:
         for f in missing:
             print(
-                f"{f} が見つかりません。"
-                f"{f}.example をコピーして作成してください。",
+                f"{f} が見つかりません。{f}.example をコピーして作成してください。",
                 file=sys.stderr,
             )
         sys.exit(1)
@@ -194,6 +193,49 @@ def _get_ai_client(
     return ai_clients[provider]
 
 
+def _schedule_event_post(
+    scheduler: AsyncIOScheduler,
+    scheduled_post_manager: ScheduledPostManager,
+    event_enabled: bool,
+    now: datetime,
+    rng: random.Random,
+) -> None:
+    """記念日イベント投稿を当日の 7〜21時のランダム時刻にスケジュールする。
+
+    起動時刻が 21時以降の場合は当日の予約を諦めてスキップログのみ出力する。
+    now と rng は注入式にしてテスト可能にしている。
+    """
+    event_key = scheduled_post_manager.get_today_event_key()
+    if not (event_key and event_enabled):
+        return
+
+    if now.hour >= 21:
+        logger.info(
+            "起動時刻が遅いためイベント投稿をスキップしました: %s",
+            event_key,
+        )
+        return
+
+    event_hour = rng.randint(max(7, now.hour + 1), 21)
+    event_minute = rng.randint(0, 59)
+    run_date = now.replace(
+        hour=event_hour, minute=event_minute, second=0, microsecond=0
+    )
+    scheduler.add_job(
+        scheduled_post_manager.execute_event_post,
+        "date",
+        run_date=run_date,
+        args=[event_key],
+        misfire_grace_time=60,
+    )
+    logger.info(
+        "イベント投稿をスケジュールしました: %s (%02d:%02d)",
+        event_key,
+        event_hour,
+        event_minute,
+    )
+
+
 async def main() -> None:
     """メインの起動シーケンス"""
     # 0. 必須設定ファイルの存在チェック
@@ -223,9 +265,7 @@ async def main() -> None:
 
     # 3a. リアクションルールの読み込み
     raw_rules = _load_reaction_rules(config.reaction.rules_file)
-    config.reaction.rules = [
-        ReactionRule(**r) for r in raw_rules
-    ]
+    config.reaction.rules = [ReactionRule(**r) for r in raw_rules]
     logger.info(
         "リアクションルールを読み込みました: %d 件",
         len(config.reaction.rules),
@@ -270,9 +310,7 @@ async def main() -> None:
 
         # 必要なプロバイダのみインスタンス化
         for provider in needed_providers:
-            ai_clients[provider] = _create_ai_client(
-                provider, config, session
-            )
+            ai_clients[provider] = _create_ai_client(provider, config, session)
         logger.info(
             "AI クライアントを初期化しました: %s",
             list(ai_clients.keys()),
@@ -358,9 +396,7 @@ async def main() -> None:
         await admin_manager.initialize()
 
         # 管理者IDを親密度マネージャーに注入
-        affinity_manager.set_admin_user_ids(
-            set(admin_manager._admin_user_ids)
-        )
+        affinity_manager.set_admin_user_ids(set(admin_manager._admin_user_ids))
 
         async def on_mention_dispatch(event: MentionEvent) -> None:
             """メンションイベントを処理順序付きでディスパッチする。"""
@@ -472,33 +508,13 @@ async def main() -> None:
         )
 
         # 記念日イベント投稿のスケジュール登録
-        event_key = scheduled_post_manager.get_today_event_key()
-        if event_key and config.posting.event.enabled:
-            now = datetime.now(JST)
-            # 7〜21時のランダムな時刻
-            if now.hour < 21:
-                event_hour = random.randint(max(7, now.hour + 1), 21)
-                event_minute = random.randint(0, 59)
-                scheduler.add_job(
-                    scheduled_post_manager.execute_event_post,
-                    "date",
-                    run_date=now.replace(
-                        hour=event_hour, minute=event_minute, second=0
-                    ),
-                    args=[event_key],
-                    misfire_grace_time=60,
-                )
-                logger.info(
-                    "イベント投稿をスケジュールしました: %s (%02d:%02d)",
-                    event_key,
-                    event_hour,
-                    event_minute,
-                )
-            else:
-                logger.info(
-                    "起動時刻が遅いためイベント投稿をスキップしました: %s",
-                    event_key,
-                )
+        _schedule_event_post(
+            scheduler=scheduler,
+            scheduled_post_manager=scheduled_post_manager,
+            event_enabled=config.posting.event.enabled,
+            now=datetime.now(JST),
+            rng=random,
+        )
 
         # メンテナンスジョブ
         if config.maintenance.enabled:
@@ -530,9 +546,12 @@ async def main() -> None:
                 "cron",
                 hour=del_h,
                 minute=del_m,
-                args=[db, misskey,
-                      config.posting.auto_delete.delete_interval_seconds,
-                      config.posting.auto_delete.delete_max_retries],
+                args=[
+                    db,
+                    misskey,
+                    config.posting.auto_delete.delete_interval_seconds,
+                    config.posting.auto_delete.delete_max_retries,
+                ],
                 misfire_grace_time=300,
             )
 
