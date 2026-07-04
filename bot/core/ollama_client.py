@@ -48,8 +48,8 @@ class OllamaClient(AIClientBase):
         self,
         user_prompt: str,
         system_prompt: str,
-        max_tokens: int = 1024,
-        temperature: float = 1.0,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
         messages: list[dict] | None = None,
     ) -> str:
         """Ollama API でテキストを生成する（non-streaming）。"""
@@ -74,8 +74,12 @@ class OllamaClient(AIClientBase):
             "messages": msg_list,
             "stream": False,
             "options": {
-                "temperature": temperature or self._default_temperature,
-                "num_predict": max_tokens or self._default_num_predict,
+                "temperature": (
+                    self._default_temperature if temperature is None else temperature
+                ),
+                "num_predict": (
+                    self._default_num_predict if max_tokens is None else max_tokens
+                ),
             },
         }
 

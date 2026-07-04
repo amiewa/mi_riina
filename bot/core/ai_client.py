@@ -18,8 +18,8 @@ class AIClientBase(ABC):
         self,
         user_prompt: str,
         system_prompt: str,
-        max_tokens: int = 1024,
-        temperature: float = 1.0,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
         messages: list[dict] | None = None,
     ) -> str:
         """テキストを生成する。
@@ -27,8 +27,10 @@ class AIClientBase(ABC):
         Args:
             user_prompt: ユーザーからの入力テキスト（messages が None の場合に使用）
             system_prompt: システムプロンプト（キャラクター設定等）
-            max_tokens: 最大出力トークン数
-            temperature: 生成の温度パラメータ
+            max_tokens: 最大出力トークン数。None の場合はコンストラクタで設定した
+                        config デフォルト値を使用する。
+            temperature: 生成の温度パラメータ。None の場合はコンストラクタで設定した
+                        config デフォルト値を使用する（0.0 を明示指定した場合はそれを使う）。
             messages: マルチターン会話履歴。指定された場合は user_prompt の代わりに
                       各プロバイダの native multi-turn 形式で渡す。
                       フォーマット: [{"role": "user"/"assistant", "content": "..."}, ...]

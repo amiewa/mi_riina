@@ -39,8 +39,8 @@ class GeminiClient(AIClientBase):
         self,
         user_prompt: str,
         system_prompt: str,
-        max_tokens: int = 1024,
-        temperature: float = 1.0,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
         messages: list[dict] | None = None,
     ) -> str:
         """Gemini API でテキストを生成する。"""
@@ -61,8 +61,12 @@ class GeminiClient(AIClientBase):
 
         config = types.GenerateContentConfig(
             system_instruction=system_prompt,
-            max_output_tokens=max_tokens or self._default_max_tokens,
-            temperature=temperature or self._default_temperature,
+            max_output_tokens=(
+                self._default_max_tokens if max_tokens is None else max_tokens
+            ),
+            temperature=(
+                self._default_temperature if temperature is None else temperature
+            ),
         )
 
         try:
