@@ -1,7 +1,9 @@
-"""ReplyManager の specified visibility 返信テスト
+"""レート制限フォールバックの迂回防止テスト
 
-visibility="specified"（DMメンション）の場合、create_note に
-visibleUserIds を付与しないと相手に届かない不具合の回帰防止。
+制限到達時のフォールバックそのものが制限にカウントされず、
+連投すると1通ごとに応答してしまう不具合の回帰防止。
+「ちょうど到達した最初の1回のみ」フォールバックを送信し、
+以降は無応答でスキップすることを検証する。
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -64,8 +66,6 @@ def mock_ng_word() -> MagicMock:
 @pytest.fixture
 def mock_rate_limiter() -> MagicMock:
     mock = MagicMock()
-    mock.is_limited = AsyncMock(return_value=False)
-    mock.get_count = AsyncMock(return_value=0)
     mock.max_per_user_per_hour = 3
     mock.record = AsyncMock()
     return mock
@@ -118,46 +118,62 @@ def manager(
 
 
 @pytest.mark.asyncio
-async def test_specified_visibility_reply_includes_visible_user_ids(
-    manager: ReplyManager, mock_misskey: MagicMock
+async def test_fallback_sent_when_count_just_reaches_max(
+    manager: ReplyManager, mock_misskey: MagicMock, mock_rate_limiter: MagicMock
 ) -> None:
-    """DM（visibility=specified）へのAI返信は visibleUserIds 付きで送られる"""
-    event = _make_mention_event(user_id="user1", visibility="specified")
+    """count がちょうど上限に達した回はフォールバックを送信する"""
+    mock_rate_limiter.get_count = AsyncMock(return_value=3)  # == max
+    event = _make_mention_event(user_id="user1")
+
+    await manager.on_mention(event)
+
+    mock_misskey.create_note.assert_called_once()
+    mock_rate_limiter.record.assert_called_once_with("user1")
+
+
+@pytest.mark.asyncio
+async def test_fallback_not_sent_when_count_exceeds_max(
+    manager: ReplyManager, mock_misskey: MagicMock, mock_rate_limiter: MagicMock
+) -> None:
+    """count が上限を超えている場合は無応答でスキップする（フォールバック連打防止）"""
+    mock_rate_limiter.get_count = AsyncMock(return_value=4)  # > max
+    event = _make_mention_event(user_id="user1")
+
+    await manager.on_mention(event)
+
+    mock_misskey.create_note.assert_not_called()
+    mock_rate_limiter.record.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_normal_reply_when_under_limit(
+    manager: ReplyManager, mock_misskey: MagicMock, mock_rate_limiter: MagicMock
+) -> None:
+    """制限未達では通常どおりAI応答する"""
+    mock_rate_limiter.get_count = AsyncMock(return_value=1)  # < max
+    event = _make_mention_event(user_id="user1")
 
     await manager.on_mention(event)
 
     mock_misskey.create_note.assert_called_once()
     call_kwargs = mock_misskey.create_note.call_args.kwargs
-    assert call_kwargs["visibility"] == "specified"
-    assert call_kwargs["visible_user_ids"] == ["user1"]
+    assert call_kwargs["text"] == "こんにちは！"
+    mock_rate_limiter.record.assert_called_once_with("user1")
 
 
 @pytest.mark.asyncio
-async def test_public_visibility_reply_has_no_visible_user_ids(
-    manager: ReplyManager, mock_misskey: MagicMock
+async def test_other_fallback_categories_also_recorded(
+    manager: ReplyManager,
+    mock_misskey: MagicMock,
+    mock_rate_limiter: MagicMock,
+    mock_ng_word: MagicMock,
 ) -> None:
-    """public 等の通常返信では visibleUserIds を付与しない"""
-    event = _make_mention_event(user_id="user1", visibility="public")
-
-    await manager.on_mention(event)
-
-    mock_misskey.create_note.assert_called_once()
-    call_kwargs = mock_misskey.create_note.call_args.kwargs
-    assert call_kwargs["visibility"] == "public"
-    assert call_kwargs["visible_user_ids"] is None
-
-
-@pytest.mark.asyncio
-async def test_specified_visibility_fallback_includes_visible_user_ids(
-    manager: ReplyManager, mock_misskey: MagicMock, mock_ng_word: MagicMock
-) -> None:
-    """NGワード等のフォールバック応答も specified の場合 visibleUserIds を付与する"""
+    """NGワード等の他カテゴリのフォールバックも record される（連打対策）"""
+    mock_rate_limiter.get_count = AsyncMock(return_value=0)
     mock_ng_word.contains_ng_word = MagicMock(return_value=True)
-    event = _make_mention_event(user_id="user1", visibility="specified")
+    event = _make_mention_event(user_id="user1", text="@riina NGワード入り")
 
     await manager.on_mention(event)
 
     mock_misskey.create_note.assert_called_once()
-    call_kwargs = mock_misskey.create_note.call_args.kwargs
-    assert call_kwargs["visibility"] == "specified"
-    assert call_kwargs["visible_user_ids"] == ["user1"]
+    mock_rate_limiter.record.assert_called_once_with("user1")

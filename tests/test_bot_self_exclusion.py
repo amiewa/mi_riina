@@ -159,6 +159,8 @@ class TestReplyManagerBotSelfExclusion:
         """RateLimiter のモック"""
         mock = MagicMock()
         mock.is_limited = AsyncMock(return_value=False)
+        mock.get_count = AsyncMock(return_value=0)
+        mock.max_per_user_per_hour = 3
         mock.record = AsyncMock()
         return mock
 

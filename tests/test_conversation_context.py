@@ -9,7 +9,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from bot.core.database import Database
 from bot.core.models import MentionEvent
 
 
@@ -48,6 +47,8 @@ def _make_reply_manager(
     ng_word.contains_ng_word = MagicMock(return_value=False)
     rate_limiter = MagicMock()
     rate_limiter.is_limited = AsyncMock(return_value=False)
+    rate_limiter.get_count = AsyncMock(return_value=0)
+    rate_limiter.max_per_user_per_hour = 3
     rate_limiter.record = AsyncMock()
     serif_loader = MagicMock()
     serif_loader.fallback = {
@@ -293,7 +294,11 @@ async def test_db_fallback_no_reply_id() -> None:
     db = _base_db()
     db.get_conversation_history = AsyncMock(
         return_value=[
-            {"user_message": "前回の質問", "bot_response": "前回の回答", "created_at": "2026-01-01"},
+            {
+                "user_message": "前回の質問",
+                "bot_response": "前回の回答",
+                "created_at": "2026-01-01",
+            },
         ]
     )
     misskey = _base_misskey()

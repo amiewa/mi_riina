@@ -85,8 +85,14 @@ class ReplyManager:
                 return
 
         # レート制限チェック
-        if await self._rate_limiter.is_limited(event.user_id):
-            await self._send_fallback(event, "rate_limited")
+        rate_count = await self._rate_limiter.get_count(event.user_id)
+        max_count = self._rate_limiter.max_per_user_per_hour
+        if rate_count >= max_count:
+            if rate_count == max_count:
+                # ちょうど制限に達した直後の1回のみフォールバックを送信する。
+                # それ以降（rate_count > max_count）は無応答でスキップし、
+                # フォールバック連打による制限迂回を防ぐ。
+                await self._send_fallback(event, "rate_limited")
             return
 
         # テキストクリーニング
@@ -336,6 +342,8 @@ class ReplyManager:
                 category,
                 event.note_id,
             )
+            # フォールバック連打によるレート制限迂回を防ぐため、送信後に記録する。
+            await self._rate_limiter.record(event.user_id)
         except Exception as e:
             logger.error("フォールバック台詞の送信に失敗しました: %s", str(e))
 

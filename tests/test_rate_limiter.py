@@ -51,3 +51,18 @@ class TestRateLimiter:
         await limiter.record("user1")
         await limiter.record("user1")
         assert await limiter.is_limited("user1") is False
+
+    @pytest.mark.asyncio
+    async def test_get_count(self, db_and_limiter) -> None:
+        """get_count が直近1時間の記録数を返す"""
+        _, limiter = db_and_limiter
+        assert await limiter.get_count("user1") == 0
+        await limiter.record("user1")
+        await limiter.record("user1")
+        assert await limiter.get_count("user1") == 2
+
+    @pytest.mark.asyncio
+    async def test_max_per_user_per_hour_property(self, db_and_limiter) -> None:
+        """max_per_user_per_hour がコンストラクタの値を返す"""
+        _, limiter = db_and_limiter
+        assert limiter.max_per_user_per_hour == 3
