@@ -3,9 +3,11 @@
 切断→再接続→全チャンネル再購読、ハンドラが二重登録されないことを検証する。
 """
 
+import asyncio
 import json
+from contextlib import asynccontextmanager
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -177,6 +179,8 @@ class TestStreamingDispatch:
         manager.on("note", handler2)
 
         await manager._dispatch("note", MagicMock())
+        # _dispatch はハンドラをタスク化して即座に返るため、完了を待つ
+        await asyncio.gather(*manager._pending_tasks)
 
         assert results == ["handler1", "handler2"]
 
@@ -201,6 +205,7 @@ class TestStreamingDispatch:
 
         # 例外が発生しても処理が継続される
         await manager._dispatch("note", MagicMock())
+        await asyncio.gather(*manager._pending_tasks)
 
         assert "success" in results
 
@@ -214,6 +219,65 @@ class TestStreamingDispatch:
 
         # 例外が発生しないこと
         await manager._dispatch("unknown_event", MagicMock())
+
+    @pytest.mark.asyncio
+    async def test_dispatch_does_not_block_subsequent_events(self) -> None:
+        """遅いハンドラの完了を待たずに後続イベントが処理されること"""
+        manager = StreamingManager(
+            instance_url="https://example.com",
+            token="test_token",
+        )
+
+        order: list[str] = []
+
+        async def slow_handler(event: Any) -> None:
+            await asyncio.sleep(0.2)
+            order.append("slow_done")
+
+        async def fast_handler(event: Any) -> None:
+            order.append("fast_done")
+
+        manager.on("note", slow_handler)
+        manager.on("mention", fast_handler)
+
+        # 遅いハンドラを持つイベントをディスパッチしても即座に返る
+        await manager._dispatch("note", MagicMock())
+        # 後続イベントのディスパッチがブロックされないこと
+        await manager._dispatch("mention", MagicMock())
+        await asyncio.sleep(0.01)  # fast_handler タスクの実行を待つ
+
+        # 遅いハンドラ（0.2秒）の完了を待たず、速いハンドラが先に完了している
+        assert order == ["fast_done"]
+
+        # 後片付け: 残りのタスクの完了を待つ
+        await asyncio.gather(*manager._pending_tasks)
+        assert order == ["fast_done", "slow_done"]
+
+    @pytest.mark.asyncio
+    async def test_stop_cancels_still_pending_tasks_after_timeout(self) -> None:
+        """stop() はタイムアウトまでに完了しないハンドラタスクを cancel する"""
+        manager = StreamingManager(
+            instance_url="https://example.com",
+            token="test_token",
+        )
+
+        async def slow_handler(event: Any) -> None:
+            await asyncio.sleep(30)
+
+        manager.on("note", slow_handler)
+        await manager._dispatch("note", MagicMock())
+        task = next(iter(manager._pending_tasks))
+
+        # asyncio.wait をタイムアウト（未完了のまま）で即座に返すよう差し替える
+        with patch(
+            "bot.managers.streaming_manager.asyncio.wait",
+            new=AsyncMock(return_value=(set(), {task})),
+        ):
+            await manager.stop()
+
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert task.cancelled()
 
 
 class TestStreamingNormalization:
@@ -326,6 +390,8 @@ class TestStreamingNormalization:
         }
 
         await manager._process_message(message)
+        # _dispatch はハンドラをタスク化して即座に返るため、完了を待つ
+        await asyncio.gather(*manager._pending_tasks)
 
         assert len(received_events) == 1
         assert received_events[0].note_id == "note999"
@@ -344,3 +410,55 @@ class TestStreamingNormalization:
         # 接続成功時に 0 にリセットされることを確認（_connect_loop 内部の動作を模倣）
         manager._retry_count = 0
         assert manager._retry_count == 0
+
+
+class TestStreamingConnectLoopTaskGroup:
+    """_connect_loop の TaskGroup 化（keepalive 残留防止）のテスト"""
+
+    @pytest.mark.asyncio
+    async def test_keepalive_cancelled_promptly_when_message_handler_fails(
+        self,
+    ) -> None:
+        """message_handler が失敗したら keepalive も直ちにキャンセルされること
+
+        asyncio.gather は一方が例外を投げてももう一方をキャンセルしないため、
+        従来は keepalive が最大30秒残留しうる不具合があった（Fix4）。
+        asyncio.TaskGroup への置き換えにより即座にキャンセルされることを確認する。
+        """
+        manager = StreamingManager(
+            instance_url="https://example.com",
+            token="test_token",
+        )
+        manager._running = True
+
+        keepalive_cancelled = asyncio.Event()
+
+        async def fake_message_handler() -> None:
+            await asyncio.sleep(0.01)
+            # ループを1回で終わらせる
+            manager._running = False
+            raise RuntimeError("接続エラー（テスト）")
+
+        async def fake_keepalive_loop() -> None:
+            try:
+                await asyncio.sleep(30)
+            except asyncio.CancelledError:
+                keepalive_cancelled.set()
+                raise
+
+        manager._message_handler = fake_message_handler
+        manager._keepalive_loop = fake_keepalive_loop
+        manager._subscribe_channels = AsyncMock()
+
+        mock_ws = AsyncMock()
+
+        @asynccontextmanager
+        async def fake_connect(*args, **kwargs):
+            yield mock_ws
+
+        with patch("bot.managers.streaming_manager.websockets.connect", fake_connect):
+            # タイムアウトを設定し、万一キャンセルされずに30秒残留した場合でも
+            # テストがハングしないようにする
+            await asyncio.wait_for(manager._connect_loop(), timeout=2.0)
+
+        assert keepalive_cancelled.is_set()

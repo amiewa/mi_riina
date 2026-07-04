@@ -60,6 +60,7 @@ class StreamingManager:
         self._ws: Any = None
         self._running = False
         self._retry_count = 0
+        self._pending_tasks: set[asyncio.Task] = set()
 
     def on(self, event_type: str, handler: Callable) -> None:
         """イベントハンドラを登録する。同一イベントに複数ハンドラ登録可能。
@@ -81,11 +82,26 @@ class StreamingManager:
         await self._connect_loop()
 
     async def stop(self) -> None:
-        """ストリーミングを停止する。"""
+        """ストリーミングを停止する。
+
+        ディスパッチ済みの未完了ハンドラタスクは、最大5秒待ってから
+        残りを cancel する。
+        """
         self._running = False
         if self._ws:
             await self._ws.close()
             logger.info("WebSocket 接続を閉じました")
+
+        if self._pending_tasks:
+            pending = list(self._pending_tasks)
+            _done, still_pending = await asyncio.wait(pending, timeout=5.0)
+            for task in still_pending:
+                task.cancel()
+            if still_pending:
+                logger.warning(
+                    "未完了のハンドラタスクを %d 件キャンセルしました",
+                    len(still_pending),
+                )
 
     async def _connect_loop(self) -> None:
         """無限再接続ループ（上限なし）。"""
@@ -105,16 +121,19 @@ class StreamingManager:
                     # チャンネル購読
                     await self._subscribe_channels()
 
-                    # Keepalive と メッセージ受信を並行実行
-                    await asyncio.gather(
-                        self._keepalive_loop(),
-                        self._message_handler(),
-                    )
+                    # Keepalive とメッセージ受信を並行実行。
+                    # asyncio.gather は一方が例外を投げてももう一方を
+                    # キャンセルしないため、TaskGroup で確実に道連れにする。
+                    async with asyncio.TaskGroup() as tg:
+                        tg.create_task(self._keepalive_loop())
+                        tg.create_task(self._message_handler())
 
-            except ConnectionClosed as e:
-                logger.warning("WebSocket 接続が切断されました: %s", str(e))
-            except Exception as e:
-                logger.error("WebSocket エラー: %s", str(e))
+            except* ConnectionClosed as eg:
+                for e in eg.exceptions:
+                    logger.warning("WebSocket 接続が切断されました: %s", str(e))
+            except* Exception as eg:
+                for e in eg.exceptions:
+                    logger.error("WebSocket エラー: %s", str(e))
             finally:
                 self._ws = None
 
@@ -202,20 +221,28 @@ class StreamingManager:
                 await self._dispatch("followed", event)
 
     async def _dispatch(self, event_type: str, event: Any) -> None:
-        """登録済みハンドラを順に呼び出す。
+        """登録済みハンドラをタスク化してディスパッチする。
 
-        1つのハンドラの例外が他に影響しないようにする。
+        ハンドラを直接 await すると、AI返信など時間のかかる処理の間
+        後続イベントの受信が止まってしまうため、各ハンドラを
+        asyncio.create_task() で並行実行し、受信ループはブロックしない。
         """
         for handler in self._handlers.get(event_type, []):
-            try:
-                await handler(event)
-            except Exception as e:
-                logger.error(
-                    "ハンドラ %s でエラーが発生しました: %s",
-                    handler.__qualname__,
-                    str(e),
-                    exc_info=True,
-                )
+            task = asyncio.create_task(self._run_handler(handler, event))
+            self._pending_tasks.add(task)
+            task.add_done_callback(self._pending_tasks.discard)
+
+    async def _run_handler(self, handler: Callable, event: Any) -> None:
+        """ハンドラを実行する。1つのハンドラの例外が他に影響しないようにする。"""
+        try:
+            await handler(event)
+        except Exception as e:
+            logger.error(
+                "ハンドラ %s でエラーが発生しました: %s",
+                handler.__qualname__,
+                str(e),
+                exc_info=True,
+            )
 
     def _normalize_note(self, body: dict, channel: str) -> NoteEvent:
         """生の Misskey JSON を NoteEvent に変換する。"""
