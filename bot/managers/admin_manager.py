@@ -6,6 +6,7 @@ bot管理者がメンションでコマンドを送信することで、
 
 import logging
 import random
+from collections import deque
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -60,7 +61,17 @@ class AdminManager:
         self._poll_manager = poll_manager
 
         self._admin_user_ids: list[str] = []
+        # 処理済みノートIDの二重処理防止（1000件を超えたら古いものから追い出すLRU）
         self._processed_note_ids: set[str] = set()
+        self._processed_note_id_order: deque[str] = deque(maxlen=1000)
+
+    def _mark_processed(self, note_id: str) -> None:
+        """ノートIDを処理済みとして記録する。上限到達時は最も古いIDを追い出す。"""
+        if len(self._processed_note_id_order) >= self._processed_note_id_order.maxlen:
+            oldest = self._processed_note_id_order.popleft()
+            self._processed_note_ids.discard(oldest)
+        self._processed_note_id_order.append(note_id)
+        self._processed_note_ids.add(note_id)
 
     async def initialize(self) -> None:
         """初期化処理（管理者IDの解決）。"""
@@ -99,17 +110,13 @@ class AdminManager:
 
         parts = text.split()
         if len(parts) < 2:
-            self._processed_note_ids.add(event.note_id)
-            if len(self._processed_note_ids) > 1000:
-                self._processed_note_ids.clear()
+            self._mark_processed(event.note_id)
             await self._reply_error(event.note_id, event.user_id)
             return True
 
         subcommand = parts[1]
 
-        self._processed_note_ids.add(event.note_id)
-        if len(self._processed_note_ids) > 1000:
-            self._processed_note_ids.clear()
+        self._mark_processed(event.note_id)
 
         try:
             if subcommand == "status":
