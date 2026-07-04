@@ -6,6 +6,7 @@
 以降は無応答でスキップすることを検証する。
 """
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -177,3 +178,40 @@ async def test_other_fallback_categories_also_recorded(
 
     mock_misskey.create_note.assert_called_once()
     mock_rate_limiter.record.assert_called_once_with("user1")
+
+
+@pytest.mark.asyncio
+async def test_concurrent_mentions_same_user_are_serialized(
+    manager: ReplyManager, mock_rate_limiter: MagicMock
+) -> None:
+    """同一ユーザーからの並行メンションはロックにより直列化される
+
+    StreamingManager._dispatch がハンドラをタスク化するようになったため、
+    同一ユーザーの複数メンションが on_mention を並行実行し得る。
+    レート制限の get_count → record が非アトミックな check-then-act の
+    ままだと、並行実行によりレート制限を迂回できてしまう（回帰防止）。
+    """
+    in_critical_section = False
+    race_detected = False
+
+    async def fake_get_count(user_id: str) -> int:
+        nonlocal in_critical_section, race_detected
+        if in_critical_section:
+            race_detected = True
+        in_critical_section = True
+        await asyncio.sleep(0.05)  # 他のタスクに実行機会を与える
+        return 0
+
+    async def fake_record(user_id: str) -> None:
+        nonlocal in_critical_section
+        in_critical_section = False
+
+    mock_rate_limiter.get_count = fake_get_count
+    mock_rate_limiter.record = fake_record
+
+    event1 = _make_mention_event(note_id="note1", user_id="user1")
+    event2 = _make_mention_event(note_id="note2", user_id="user1")
+
+    await asyncio.gather(manager.on_mention(event1), manager.on_mention(event2))
+
+    assert not race_detected

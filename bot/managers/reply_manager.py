@@ -54,6 +54,16 @@ class ReplyManager:
         self._affinity = affinity_manager
         self._semaphore = asyncio.Semaphore(config.reply.ai_concurrency)
         self._character_prompt = self._load_character_prompt()
+        # ユーザー単位の排他制御（レート制限のcheck-then-actをアトミックにする）
+        self._user_locks: dict[str, asyncio.Lock] = {}
+
+    def _get_user_lock(self, user_id: str) -> asyncio.Lock:
+        """ユーザーID単位のロックを取得する（なければ作成）。"""
+        lock = self._user_locks.get(user_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._user_locks[user_id] = lock
+        return lock
 
     def _load_character_prompt(self) -> str:
         """キャラクタープロンプトを読み込む。"""
@@ -72,6 +82,14 @@ class ReplyManager:
         if not self._config.reply.enabled:
             return
 
+        # ハンドラのタスク化（StreamingManager._dispatch）により同一ユーザーの
+        # 複数メンションが並行実行され得るため、ユーザー単位でロックし
+        # レート制限のcheck-then-actをアトミックにする。
+        async with self._get_user_lock(event.user_id):
+            await self._handle_mention_locked(event)
+
+    async def _handle_mention_locked(self, event: MentionEvent) -> None:
+        """ユーザー単位のロック内で実行されるメンション処理本体。"""
         # execution_key チェック（二重返信防止）
         execution_key = f"reply:{event.note_id}"
 
