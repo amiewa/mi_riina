@@ -102,7 +102,7 @@ class AdminManager:
             self._processed_note_ids.add(event.note_id)
             if len(self._processed_note_ids) > 1000:
                 self._processed_note_ids.clear()
-            await self._reply_error(event.note_id)
+            await self._reply_error(event.note_id, event.user_id)
             return True
 
         subcommand = parts[1]
@@ -113,37 +113,46 @@ class AdminManager:
 
         try:
             if subcommand == "status":
-                await self._handle_status(event.note_id)
+                await self._handle_status(event.note_id, event.user_id)
             elif subcommand == "post":
                 if len(parts) < 3:
-                    await self._reply_error(event.note_id)
+                    await self._reply_error(event.note_id, event.user_id)
                 else:
-                    await self._handle_post(event.note_id, parts[2])
+                    await self._handle_post(event.note_id, event.user_id, parts[2])
             elif subcommand == "nickname":
                 if len(parts) < 3:
-                    await self._reply_error(event.note_id)
+                    await self._reply_error(event.note_id, event.user_id)
                 else:
-                    await self._handle_nickname(event.note_id, parts[2])
+                    await self._handle_nickname(event.note_id, event.user_id, parts[2])
             else:
-                await self._reply_error(event.note_id)
+                await self._reply_error(event.note_id, event.user_id)
         except Exception as e:
             logger.error("管理コマンド実行中にエラー: %s", e)
-            await self._reply_error(event.note_id)
+            await self._reply_error(event.note_id, event.user_id)
 
         return True
 
-    async def _reply_error(self, reply_id: str) -> None:
-        """不正なコマンド時のエラー応答"""
-        fallback_data = self._serif_loader.fallback or {}
-        serifs = fallback_data.get("command_error", [])
-        text = random.choice(serifs) if serifs else "コマンドエラー"
+    async def _reply(self, reply_id: str, user_id: str, text: str) -> None:
+        """管理コマンドへの返信を送信する。
+
+        visibility="specified" の DM 応答は visibleUserIds を付与しないと
+        コマンド送信者に届かないため、ここで一元的に付与する。
+        """
         await self._misskey.create_note(
             text=text,
             visibility="specified",
             reply_id=reply_id,
+            visible_user_ids=[user_id],
         )
 
-    async def _handle_status(self, reply_id: str) -> None:
+    async def _reply_error(self, reply_id: str, user_id: str) -> None:
+        """不正なコマンド時のエラー応答"""
+        fallback_data = self._serif_loader.fallback or {}
+        serifs = fallback_data.get("command_error", [])
+        text = random.choice(serifs) if serifs else "コマンドエラー"
+        await self._reply(reply_id, user_id, text)
+
+    async def _handle_status(self, reply_id: str, admin_user_id: str) -> None:
         """/admin status の処理（絵文字ベース表示）"""
         c = self._config
         today_start = datetime.now(JST).replace(
@@ -168,12 +177,8 @@ class AdminManager:
                GROUP BY provider""",
             (today_start.isoformat(),),
         )
-        provider_counts = {
-            r["provider"]: r["cnt"] for r in provider_rows
-        }
-        provider_summary = " ".join(
-            f"{p}:{cnt}" for p, cnt in provider_counts.items()
-        )
+        provider_counts = {r["provider"]: r["cnt"] for r in provider_rows}
+        provider_summary = " ".join(f"{p}:{cnt}" for p, cnt in provider_counts.items())
         if not provider_summary:
             provider_summary = "なし"
 
@@ -181,6 +186,7 @@ class AdminManager:
 
         # 機能別プロバイダ解決
         fp = c.ai.function_providers
+
         def _resolve(func: str) -> str:
             return getattr(fp, func, None) or c.ai.provider
 
@@ -196,8 +202,7 @@ class AdminManager:
             f" 🔮{_resolve('horoscope')}"
             f" 📰{_resolve('timeline_post')}"
             f" 🗳️{_resolve('poll')}",
-            f"📊本日: {today_posts_count}件"
-            f" ({provider_summary})",
+            f"📊本日: {today_posts_count}件 ({provider_summary})",
             "─────────────",
             f"📮{c.posting.default_visibility}"
             f" / ⏱️{c.posting.cooldown_minutes}分"
@@ -228,21 +233,17 @@ class AdminManager:
         ]
 
         text = "\n".join(lines)
-        await self._misskey.create_note(
-            text=text,
-            visibility="specified",
-            reply_id=reply_id,
-        )
+        await self._reply(reply_id, admin_user_id, text)
         logger.info("statusを応答しました")
 
-    async def _handle_nickname(self, reply_id: str, username: str) -> None:
+    async def _handle_nickname(
+        self, reply_id: str, admin_user_id: str, username: str
+    ) -> None:
         """/admin nickname <username> の処理"""
         user = await self._misskey.get_user_by_username(username)
         if not user:
-            await self._misskey.create_note(
-                text=f"ユーザー @{username} が見つかりません",
-                visibility="specified",
-                reply_id=reply_id,
+            await self._reply(
+                reply_id, admin_user_id, f"ユーザー @{username} が見つかりません"
             )
             return
 
@@ -253,14 +254,12 @@ class AdminManager:
         else:
             text = f"@{username} のニックネームは未登録です"
 
-        await self._misskey.create_note(
-            text=text,
-            visibility="specified",
-            reply_id=reply_id,
-        )
+        await self._reply(reply_id, admin_user_id, text)
         logger.info("ニックネーム確認を応答しました: %s", username)
 
-    async def _handle_post(self, reply_id: str, post_type: str) -> None:
+    async def _handle_post(
+        self, reply_id: str, admin_user_id: str, post_type: str
+    ) -> None:
         """/admin post の処理"""
 
         try:
@@ -269,7 +268,9 @@ class AdminManager:
             elif post_type == "scheduled":
                 now = datetime.now(JST)
                 time_key = f"{now.hour:02d}:{now.minute:02d}"
-                await self._scheduled_post_manager._do_scheduled_post(time_key, force=True)
+                await self._scheduled_post_manager._do_scheduled_post(
+                    time_key, force=True
+                )
             elif post_type == "weekday":
                 await self._weekday_post_manager._do_weekday_post(force=True)
             elif post_type == "timeline":
@@ -283,18 +284,14 @@ class AdminManager:
             elif post_type == "event":
                 await self._scheduled_post_manager._do_event_post(force=True)
             else:
-                await self._reply_error(reply_id)
+                await self._reply_error(reply_id, admin_user_id)
                 return
 
-            await self._misskey.create_note(
-                text=f"✅ {post_type} 投稿を実行しました",
-                visibility="specified",
-                reply_id=reply_id,
+            await self._reply(
+                reply_id, admin_user_id, f"✅ {post_type} 投稿を実行しました"
             )
         except Exception as e:
             logger.error("強制投稿エラー: %s", e)
-            await self._misskey.create_note(
-                text=f"❌ {post_type} 投稿エラー: {e}",
-                visibility="specified",
-                reply_id=reply_id,
+            await self._reply(
+                reply_id, admin_user_id, f"❌ {post_type} 投稿エラー: {e}"
             )

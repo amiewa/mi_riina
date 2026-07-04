@@ -162,8 +162,13 @@ class MisskeyClient:
         reply_id: str | None = None,
         file_ids: list[str] | None = None,
         poll: dict | None = None,
+        visible_user_ids: list[str] | None = None,
     ) -> str:
-        """ノートを投稿し、note_id を返す。"""
+        """ノートを投稿し、note_id を返す。
+
+        visibility="specified" の場合、visible_user_ids を指定しないと
+        宛先が空になり相手に届かないため、呼び出し側で必ず指定すること。
+        """
         params: dict[str, Any] = {
             "text": text,
             "visibility": visibility,
@@ -174,6 +179,8 @@ class MisskeyClient:
             params["fileIds"] = file_ids
         if poll:
             params["poll"] = poll
+        if visible_user_ids:
+            params["visibleUserIds"] = visible_user_ids
 
         result = await self._request("/api/notes/create", params)
         note_id = result["createdNote"]["id"]

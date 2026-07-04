@@ -89,7 +89,7 @@ async def test_try_handle_status_command(admin_manager):
     )
     handled = await admin_manager.try_handle(event)
     assert handled
-    admin_manager._handle_status.assert_called_once_with("n1")
+    admin_manager._handle_status.assert_called_once_with("n1", "admin_user_id")
 
 
 @pytest.mark.asyncio
@@ -107,7 +107,7 @@ async def test_try_handle_post_command(admin_manager):
     )
     handled = await admin_manager.try_handle(event)
     assert handled
-    admin_manager._handle_post.assert_called_once_with("n1", "random")
+    admin_manager._handle_post.assert_called_once_with("n1", "admin_user_id", "random")
 
 
 @pytest.mark.asyncio
@@ -125,7 +125,27 @@ async def test_try_handle_invalid_command(admin_manager):
     )
     handled = await admin_manager.try_handle(event)
     assert handled
-    admin_manager._reply_error.assert_called_once_with("n1")
+    admin_manager._reply_error.assert_called_once_with("n1", "admin_user_id")
+
+
+@pytest.mark.asyncio
+async def test_reply_error_includes_visible_user_ids(admin_manager):
+    """specified visibility の応答には visibleUserIds が付与される"""
+    await admin_manager.initialize()
+    admin_manager._serif_loader.fallback = {"command_error": ["コマンドエラー"]}
+    event = MentionEvent(
+        note_id="n1",
+        user_id="admin_user_id",
+        text="/admin unknown",
+        username="u",
+        cw=None,
+        visibility="public",
+    )
+    await admin_manager.try_handle(event)
+
+    call_kwargs = admin_manager._misskey.create_note.call_args.kwargs
+    assert call_kwargs["visibility"] == "specified"
+    assert call_kwargs["visible_user_ids"] == ["admin_user_id"]
 
 
 @pytest.mark.asyncio
