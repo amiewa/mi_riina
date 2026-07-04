@@ -54,6 +54,16 @@ class ReplyManager:
         self._affinity = affinity_manager
         self._semaphore = asyncio.Semaphore(config.reply.ai_concurrency)
         self._character_prompt = self._load_character_prompt()
+        # ユーザー単位の排他制御（レート制限のcheck-then-actをアトミックにする）
+        self._user_locks: dict[str, asyncio.Lock] = {}
+
+    def _get_user_lock(self, user_id: str) -> asyncio.Lock:
+        """ユーザーID単位のロックを取得する（なければ作成）。"""
+        lock = self._user_locks.get(user_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._user_locks[user_id] = lock
+        return lock
 
     def _load_character_prompt(self) -> str:
         """キャラクタープロンプトを読み込む。"""
@@ -72,6 +82,14 @@ class ReplyManager:
         if not self._config.reply.enabled:
             return
 
+        # ハンドラのタスク化（StreamingManager._dispatch）により同一ユーザーの
+        # 複数メンションが並行実行され得るため、ユーザー単位でロックし
+        # レート制限のcheck-then-actをアトミックにする。
+        async with self._get_user_lock(event.user_id):
+            await self._handle_mention_locked(event)
+
+    async def _handle_mention_locked(self, event: MentionEvent) -> None:
+        """ユーザー単位のロック内で実行されるメンション処理本体。"""
         # execution_key チェック（二重返信防止）
         execution_key = f"reply:{event.note_id}"
 
@@ -85,8 +103,14 @@ class ReplyManager:
                 return
 
         # レート制限チェック
-        if await self._rate_limiter.is_limited(event.user_id):
-            await self._send_fallback(event, "rate_limited")
+        rate_count = await self._rate_limiter.get_count(event.user_id)
+        max_count = self._rate_limiter.max_per_user_per_hour
+        if rate_count >= max_count:
+            if rate_count == max_count:
+                # ちょうど制限に達した直後の1回のみフォールバックを送信する。
+                # それ以降（rate_count > max_count）は無応答でスキップし、
+                # フォールバック連打による制限迂回を防ぐ。
+                await self._send_fallback(event, "rate_limited")
             return
 
         # テキストクリーニング
@@ -134,9 +158,7 @@ class ReplyManager:
                 # ニックネーム/表示名をプロンプトに反映
                 display_name = await self._resolve_display_name(event)
                 if display_name:
-                    system_prompt = (
-                        f"{system_prompt}\n\n相手の呼び名は{display_name}"
-                    )
+                    system_prompt = f"{system_prompt}\n\n相手の呼び名は{display_name}"
 
                 # 会話文脈の構築
                 conv_messages: list[dict] | None = None
@@ -176,11 +198,7 @@ class ReplyManager:
             return
 
         try:
-            note_id = await self._misskey.create_note(
-                text=response,
-                visibility=event.visibility,
-                reply_id=event.note_id,
-            )
+            note_id = await self._reply_note(event, response)
             await self._db.update_post_note_id(post_id, note_id)
             await self._rate_limiter.record(event.user_id)
             # 投稿成功後に親密度を記録
@@ -202,6 +220,20 @@ class ReplyManager:
         except Exception as e:
             logger.error("リプライの投稿に失敗しました: %s", str(e))
             await self._db.delete_post_by_id(post_id)
+
+    async def _reply_note(self, event: MentionEvent, text: str) -> str:
+        """event への返信ノートを作成する。
+
+        visibility="specified"（DMメンション）の場合は visibleUserIds を
+        付与しないと相手に届かないため、ここで一元的に付与する。
+        """
+        visible_user_ids = [event.user_id] if event.visibility == "specified" else None
+        return await self._misskey.create_note(
+            text=text,
+            visibility=event.visibility,
+            reply_id=event.note_id,
+            visible_user_ids=visible_user_ids,
+        )
 
     async def _build_conversation_messages(
         self, event: MentionEvent, cleaned_text: str
@@ -300,9 +332,7 @@ class ReplyManager:
             turns.append({"role": "assistant", "content": h["bot_response"]})
         return turns
 
-    def _trim_context_by_chars(
-        self, turns: list[dict], max_chars: int
-    ) -> list[dict]:
+    def _trim_context_by_chars(self, turns: list[dict], max_chars: int) -> list[dict]:
         """文字数制限を超えた場合、古いターンからペア単位で削除する。"""
         turns = list(turns)  # コピーして元を変更しない
 
@@ -324,16 +354,14 @@ class ReplyManager:
         text = random.choice(fallback[category])
 
         try:
-            await self._misskey.create_note(
-                text=text,
-                visibility=event.visibility,
-                reply_id=event.note_id,
-            )
+            await self._reply_note(event, text)
             logger.info(
                 "フォールバック台詞を送信しました（category=%s, note_id=%s）",
                 category,
                 event.note_id,
             )
+            # フォールバック連打によるレート制限迂回を防ぐため、送信後に記録する。
+            await self._rate_limiter.record(event.user_id)
         except Exception as e:
             logger.error("フォールバック台詞の送信に失敗しました: %s", str(e))
 
@@ -365,11 +393,7 @@ class ReplyManager:
         # NGワードチェック
         if self._ng_word.contains_ng_word(nickname):
             try:
-                await self._misskey.create_note(
-                    text=nick_config.ng_word_response,
-                    visibility=event.visibility,
-                    reply_id=event.note_id,
-                )
+                await self._reply_note(event, nick_config.ng_word_response)
             except Exception as e:
                 logger.error("ニックネームNG応答の送信に失敗しました: %s", str(e))
             return
@@ -393,11 +417,7 @@ class ReplyManager:
             return
 
         try:
-            note_id = await self._misskey.create_note(
-                text=text,
-                visibility=event.visibility,
-                reply_id=event.note_id,
-            )
+            note_id = await self._reply_note(event, text)
             await self._db.update_post_note_id(post_id, note_id)
             logger.info(
                 "ニックネームを登録しました（user_id=%s, nickname=%s）",
@@ -408,7 +428,9 @@ class ReplyManager:
             logger.error("ニックネーム登録応答の送信に失敗しました: %s", str(e))
             await self._db.delete_post_by_id(post_id)
 
-    async def _handle_nickname_reset(self, event: MentionEvent, execution_key: str) -> None:
+    async def _handle_nickname_reset(
+        self, event: MentionEvent, execution_key: str
+    ) -> None:
         """ニックネーム削除を処理する。"""
         await self._db.delete_nickname(event.user_id)
         text = self._config.reply.nickname.reset_response
@@ -428,11 +450,7 @@ class ReplyManager:
             return
 
         try:
-            note_id = await self._misskey.create_note(
-                text=text,
-                visibility=event.visibility,
-                reply_id=event.note_id,
-            )
+            note_id = await self._reply_note(event, text)
             await self._db.update_post_note_id(post_id, note_id)
             logger.info(
                 "ニックネームをリセットしました（user_id=%s）",

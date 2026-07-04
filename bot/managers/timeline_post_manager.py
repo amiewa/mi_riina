@@ -17,6 +17,7 @@ from bot.core.misskey_client import MisskeyClient, dict_to_note_event, filter_no
 from bot.core.ai_client import AIClientBase
 from bot.utils.night_mode import is_night_mode
 from bot.utils.ng_word_manager import NGWordManager
+from bot.utils.retry import RetryableError, retry_async
 from bot.utils.text_cleaner import clean_note_text
 from bot.utils.text_utils import weighted_keyword_choice
 from bot.utils.tokenizer import TokenizerBase
@@ -166,9 +167,14 @@ class TimelinePostManager:
                 scheduled_delete_at=scheduled_delete_at,
             )
 
-            note_id = await self._misskey.create_note(
-                text=text,
-                visibility=self._config.posting.default_visibility,
+            note_id = await retry_async(
+                lambda: self._misskey.create_note(
+                    text=text,
+                    visibility=self._config.posting.default_visibility,
+                ),
+                retries=2,
+                base_delay=5.0,
+                retry_on=(RetryableError,),
             )
 
             await self._db.update_post_note_id(post_id, note_id)
@@ -214,7 +220,7 @@ class TimelinePostManager:
             logger.error("システムプロンプトの読み込みに失敗しました: %s", str(e))
             return None
 
-        user_prompt = f"""現在は {now.strftime('%Y-%m-%d %H:%M')} です。時間帯（朝・昼・夕方・夜・深夜）を適切に考慮してください。
+        user_prompt = f"""現在は {now.strftime("%Y-%m-%d %H:%M")} です。時間帯（朝・昼・夕方・夜・深夜）を適切に考慮してください。
 タイムラインを眺めていたら、以下のキーワードが話題になっているのを見かけました。
 それを受けて「ふと目にした」「みんな話してるな」といった第三者的な観測・気づきの視点で、
 2〜3文程度の雑談文章を1つだけ作ってください。文章は必ず最後まで書き切ってください。

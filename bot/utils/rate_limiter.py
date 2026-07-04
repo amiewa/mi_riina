@@ -24,7 +24,7 @@ class RateLimiter:
 
     async def is_limited(self, user_id: str) -> bool:
         """指定ユーザーがレート制限に達しているかを判定する。"""
-        count = await self._db.count_recent_replies(user_id, hours=1)
+        count = await self.get_count(user_id)
         if count >= self._max_per_user_per_hour:
             logger.info(
                 "レート制限に達しています（user_id=%s, count=%d/%d）",
@@ -34,6 +34,15 @@ class RateLimiter:
             )
             return True
         return False
+
+    async def get_count(self, user_id: str) -> int:
+        """指定ユーザーの直近1時間のリプライ数を取得する。"""
+        return await self._db.count_recent_replies(user_id, hours=1)
+
+    @property
+    def max_per_user_per_hour(self) -> int:
+        """1時間あたりの上限リプライ数。"""
+        return self._max_per_user_per_hour
 
     async def record(self, user_id: str) -> None:
         """リプライを記録する。"""

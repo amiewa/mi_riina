@@ -325,7 +325,7 @@ async def main() -> None:
             )
             sys.exit(1)
 
-        misskey = MisskeyClient(misskey_url, misskey_token)
+        misskey = MisskeyClient(misskey_url, misskey_token, session)
         try:
             await misskey.initialize()
         except Exception as e:

@@ -65,16 +65,21 @@ class MisskeyClient:
     各 Manager はこのクラスの公開メソッドのみを使用する。
     """
 
-    def __init__(self, instance_url: str, api_token: str) -> None:
+    def __init__(
+        self, instance_url: str, api_token: str, session: aiohttp.ClientSession
+    ) -> None:
+        """MisskeyClient を初期化する。
+
+        session は main.py が生成・クローズを管理する共有 ClientSession を
+        受け取る（このクラスでは所有・クローズしない）。
+        """
         self._instance_url = instance_url.rstrip("/")
         self._token = api_token
-        self._session: aiohttp.ClientSession | None = None
+        self._session: aiohttp.ClientSession = session
         self._bot_user_id: str = ""
 
     async def initialize(self) -> None:
         """クライアントを初期化し、bot 自身の user_id を取得する。"""
-        self._session = aiohttp.ClientSession()
-
         # bot 自身のユーザー情報を取得して接続確認
         me = await self.get_me()
         self._bot_user_id = me["id"]
@@ -128,8 +133,6 @@ class MisskeyClient:
         Raises:
             RuntimeError: API エラー時
         """
-        assert self._session is not None, "クライアントが初期化されていません"
-
         body = {"i": self._token}
         if params:
             body.update(params)
@@ -162,8 +165,13 @@ class MisskeyClient:
         reply_id: str | None = None,
         file_ids: list[str] | None = None,
         poll: dict | None = None,
+        visible_user_ids: list[str] | None = None,
     ) -> str:
-        """ノートを投稿し、note_id を返す。"""
+        """ノートを投稿し、note_id を返す。
+
+        visibility="specified" の場合、visible_user_ids を指定しないと
+        宛先が空になり相手に届かないため、呼び出し側で必ず指定すること。
+        """
         params: dict[str, Any] = {
             "text": text,
             "visibility": visibility,
@@ -174,6 +182,8 @@ class MisskeyClient:
             params["fileIds"] = file_ids
         if poll:
             params["poll"] = poll
+        if visible_user_ids:
+            params["visibleUserIds"] = visible_user_ids
 
         result = await self._request("/api/notes/create", params)
         note_id = result["createdNote"]["id"]
@@ -205,8 +215,6 @@ class MisskeyClient:
 
     async def upload_file(self, file_path: str) -> str:
         """ファイルをドライブにアップロードし、file_id を返す。"""
-        assert self._session is not None
-
         url = f"{self._instance_url}/api/drive/files/create"
         with open(file_path, "rb") as f:
             data = aiohttp.FormData()
@@ -347,7 +355,9 @@ class MisskeyClient:
         return all_following[:limit]
 
     async def close(self) -> None:
-        """クライアントを終了する。"""
-        if self._session and not self._session.closed:
-            await self._session.close()
-            logger.info("Misskey クライアントを終了しました")
+        """クライアントを終了する。
+
+        session は main.py が所有・生成しており、クローズも main.py の
+        責務のためここでは何もしない。
+        """
+        logger.info("Misskey クライアントを終了しました")

@@ -15,6 +15,7 @@ from bot.core.config import AppConfig
 from bot.core.database import Database
 from bot.core.misskey_client import MisskeyClient
 from bot.utils.night_mode import is_night_mode
+from bot.utils.retry import RetryableError, retry_async
 from bot.utils.serif_loader import SerifLoader
 
 logger = logging.getLogger(__name__)
@@ -104,9 +105,14 @@ class ScheduledPostManager:
             raise
 
         try:
-            note_id = await self._misskey.create_note(
-                text=text,
-                visibility=self._config.posting.default_visibility,
+            note_id = await retry_async(
+                lambda: self._misskey.create_note(
+                    text=text,
+                    visibility=self._config.posting.default_visibility,
+                ),
+                retries=2,
+                base_delay=5.0,
+                retry_on=(RetryableError,),
             )
             await self._db.update_post_note_id(post_id, note_id)
             logger.info(
@@ -129,7 +135,9 @@ class ScheduledPostManager:
 
         await self._do_event_post(date_key)
 
-    async def _do_event_post(self, date_key: str | None = None, force: bool = False) -> None:
+    async def _do_event_post(
+        self, date_key: str | None = None, force: bool = False
+    ) -> None:
         """実際の記念日イベント投稿処理。AdminManagerからも呼ばれる。"""
         if date_key is None:
             date_key = self.get_today_event_key()
@@ -173,9 +181,14 @@ class ScheduledPostManager:
             raise
 
         try:
-            note_id = await self._misskey.create_note(
-                text=text,
-                visibility=self._config.posting.default_visibility,
+            note_id = await retry_async(
+                lambda: self._misskey.create_note(
+                    text=text,
+                    visibility=self._config.posting.default_visibility,
+                ),
+                retries=2,
+                base_delay=5.0,
+                retry_on=(RetryableError,),
             )
             await self._db.update_post_note_id(post_id, note_id)
             logger.info(

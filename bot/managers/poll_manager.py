@@ -21,6 +21,7 @@ from bot.core.database import Database
 from bot.core.misskey_client import MisskeyClient, dict_to_note_event, filter_notes
 from bot.utils.ng_word_manager import NGWordManager
 from bot.utils.night_mode import is_night_mode
+from bot.utils.retry import RetryableError, retry_async
 from bot.utils.serif_loader import SerifLoader
 from bot.utils.text_cleaner import clean_note_text
 from bot.utils.text_utils import weighted_keyword_choice
@@ -158,14 +159,19 @@ class PollManager:
         )
 
         try:
-            note_id = await self._misskey.create_note(
-                text=question,
-                visibility=self._config.posting.default_visibility,
-                poll={
-                    "choices": choices,
-                    "multiple": poll_config.multiple_choice,
-                    "expiresAt": expires_at,
-                },
+            note_id = await retry_async(
+                lambda: self._misskey.create_note(
+                    text=question,
+                    visibility=self._config.posting.default_visibility,
+                    poll={
+                        "choices": choices,
+                        "multiple": poll_config.multiple_choice,
+                        "expiresAt": expires_at,
+                    },
+                ),
+                retries=2,
+                base_delay=5.0,
+                retry_on=(RetryableError,),
             )
             await self._db.update_post_note_id(post_id, note_id)
             logger.info(
